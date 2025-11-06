@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Glitch Login - Institute Portal</title>
+<style>
+/* --- Page Background --- */
+body {
+  margin: 0;
+  height: 100vh;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  font-family: 'Fira Code', monospace;
+  background-color: #0d0d0d;
+}
+
+/* --- Root Variables --- */
+:root {
+  --bg-color: #0d0d0d;
+  --primary-color: #00f2ea;
+  --secondary-color: #a855f7;
+  --text-color: #e5e5e5;
+  --glitch-duration: 0.5s;
+}
+
+/* --- Login Card --- */
+.container {
+  position: relative;
+  width: 100%;
+  max-width: 400px;
+  padding: 3rem 2rem;
+  border-radius: 12px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  border: 1px solid rgba(0,242,234,0.2);
+  background-color: var(--bg-color);
+  box-shadow: 0 0 15px rgba(0,242,234,0.2);
+}
+
+/* --- Header --- */
+.container h2 {
+  color: var(--primary-color);
+  margin-bottom: 2rem;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  position: relative;
+}
+
+/* --- Form Inputs --- */
+.input-group {
+  position: relative;
+  width: 100%;
+  margin-bottom: 1.5rem;
+}
+
+.input-group input {
+  width: 100%;
+  padding: 0.75em 0;
+  font-size: 1rem;
+  background: transparent;
+  border: none;
+  border-bottom: 2px solid rgba(0,242,234,0.3);
+  color: var(--text-color);
+  font-family: inherit;
+  outline: none;
+  transition: border-color 0.3s ease;
+}
+
+.input-group input:focus {
+  border-color: var(--primary-color);
+}
+
+.input-group label {
+  position: absolute;
+  top: 0.75em;
+  left: 0;
+  color: var(--primary-color);
+  text-transform: uppercase;
+  font-size: 1rem;
+  opacity: 0.7;
+  pointer-events: none;
+  transition: all 0.3s ease;
+}
+
+.input-group input:focus + label,
+.input-group input:not(:placeholder-shown) + label {
+  top: -1.2em;
+  font-size: 0.8rem;
+  opacity: 1;
+}
+
+/* --- Glitch effect for input labels --- */
+.input-group label::before,
+.input-group label::after {
+  content: attr(data-text);
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  color: var(--primary-color);
+  background-color: var(--bg-color);
+  overflow: hidden;
+  clip-path: inset(0 0 0 0);
+}
+
+.input-group input:focus + label::before {
+  color: var(--secondary-color);
+  animation: glitchLabel var(--glitch-duration) cubic-bezier(0.25,0.46,0.45,0.94) both;
+}
+
+.input-group input:focus + label::after {
+  color: var(--primary-color);
+  animation: glitchLabel var(--glitch-duration) cubic-bezier(0.25,0.46,0.45,0.94) reverse both;
+}
+
+@keyframes glitchLabel {
+  0% { transform: translate(0); clip-path: inset(0 0 0 0);}
+  20% { transform: translate(-3px,2px); clip-path: inset(50% 0 20% 0);}
+  40% { transform: translate(2px,-2px); clip-path: inset(20% 0 60% 0);}
+  60% { transform: translate(-2px,3px); clip-path: inset(80% 0 5% 0);}
+  80% { transform: translate(3px,-1px); clip-path: inset(30% 0 45% 0);}
+  100% { transform: translate(0); clip-path: inset(0 0 0 0);}
+}
+
+/* --- Login Button --- */
+#loginBtn {
+  width: 100%;
+  padding: 0.8em;
+  background-color: transparent;
+  border: 2px solid var(--primary-color);
+  color: var(--primary-color);
+  font-family: inherit;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.2em;
+  cursor: pointer;
+  position: relative;
+  overflow: hidden;
+  border-radius: 8px;
+  transition: all 0.3s;
+  margin-bottom: 1rem;
+}
+
+#loginBtn:hover {
+  background-color: var(--primary-color);
+  color: var(--bg-color);
+  box-shadow: 0 0 25px var(--primary-color);
+}
+
+#loginBtn:active {
+  transform: scale(0.97);
+}
+
+#loginBtn::before,
+#loginBtn::after {
+  content: attr(data-text);
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+}
+
+#loginBtn:hover::before {
+  opacity: 1;
+  color: var(--secondary-color);
+  animation: glitchLabel var(--glitch-duration) both;
+}
+
+#loginBtn:hover::after {
+  opacity: 1;
+  color: var(--bg-color);
+  animation: glitchLabel var(--glitch-duration) reverse both;
+}
+
+/* --- Sign Up Link --- */
+.signup {
+  margin-top: 1rem;
+  color: var(--primary-color);
+  font-size: 0.85rem;
+  cursor: pointer;
+  text-decoration: underline;
+  transition: color 0.3s;
+}
+
+.signup:hover {
+  color: var(--secondary-color);
+  text-shadow: 0 0 5px var(--secondary-color);
+}
+</style>
+</head>
+<body>
+
+<div class="container">
+  <h2>Login</h2>
+  <div class="input-group">
+    <input type="text" id="username" required placeholder=" ">
+    <label for="username" data-text="USERNAME">USERNAME</label>
+  </div>
+  <div class="input-group">
+    <input type="password" id="password" required placeholder=" ">
+    <label for="password" data-text="PASSWORD">PASSWORD</label>
+  </div>
+  <button id="loginBtn" data-text="LOGIN">LOGIN</button>
+  <div class="signup" onclick="location.href='signup.html'">Don't have an account? Sign Up</div>
+</div>
+
+<script>
+document.getElementById('loginBtn').addEventListener('click', async () => {
+  const username = document.getElementById('username').value;
+  const password = document.getElementById('password').value;
+
+  const res = await fetch('/login', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ username, password })
+  });
+  const data = await res.json();
+
+  if (data.user) {
+    localStorage.setItem('userId', data.user.user_Id);
+    localStorage.setItem('role', data.user.role);
+    if (data.user.role === 'student') location.href = 'student.html';
+    else if (data.user.role === 'faculty') location.href = 'faculty.html';
+    else location.href = 'admin.html';
+  } else {
+    alert(data.message || 'Invalid credentials');
+  }
+});
+</script>
+
+</body>
+</html>

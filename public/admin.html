@@ -1,0 +1,398 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Admin Dashboard</title>
+<style>
+/* --- Root variables --- */
+:root {
+  --bg-color: #0d0d0d;
+  --primary-color: #00f2ea;
+  --secondary-color: #a855f7;
+  --text-color: #e5e5e5;
+  --font-family: "Fira Code", Consolas, "Courier New", Courier, monospace;
+  --glitch-anim-duration: 0.5s;
+}
+
+/* --- Body --- */
+body {
+  margin: 0;
+  font-family: var(--font-family);
+  background-color: #050505;
+  color: var(--text-color);
+}
+
+/* --- Header --- */
+header {
+  background: #0a0a0a;
+  color: var(--primary-color);
+  padding: 15px 30px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 2px solid var(--primary-color);
+  box-shadow: 0 0 15px rgba(0,242,234,0.2);
+}
+
+header h2 {
+  font-size: 22px;
+  color: var(--primary-color);
+  text-shadow: 0 0 5px var(--primary-color);
+}
+
+header button {
+  background: transparent;
+  border: 2px solid var(--primary-color);
+  color: var(--primary-color);
+  padding: 8px 14px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: bold;
+  transition: all 0.3s;
+}
+
+header button:hover {
+  background-color: var(--primary-color);
+  color: var(--bg-color);
+  box-shadow: 0 0 15px var(--primary-color);
+}
+
+/* --- Container & Tabs --- */
+.container {
+  padding: 30px;
+  max-width: 1200px;
+  margin: auto;
+}
+
+.tabs {
+  display: flex;
+  gap: 15px;
+  margin-bottom: 25px;
+}
+
+.tab {
+  background: transparent;
+  border: 2px solid var(--primary-color);
+  border-radius: 6px;
+  padding: 12px 18px;
+  cursor: pointer;
+  font-size: 15px;
+  color: var(--primary-color);
+  transition: all 0.3s;
+}
+
+.tab.active, .tab:hover {
+  background: var(--primary-color);
+  color: var(--bg-color);
+  box-shadow: 0 0 15px var(--primary-color);
+}
+
+/* --- Glitch Form Wrapper --- */
+.glitch-form-wrapper {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  background-color: #0a0a0a;
+  padding: 20px;
+  border-radius: 12px;
+  border: 1px solid rgba(0,242,234,0.2);
+  box-shadow:
+    0 0 20px rgba(0,242,234,0.1),
+    inset 0 0 10px rgba(0,0,0,0.5);
+}
+
+/* --- Form Groups --- */
+.form-group {
+  position: relative;
+  flex: 1 1 150px;
+}
+
+.form-group input {
+  width: 100%;
+  background: transparent;
+  border: none;
+  border-bottom: 2px solid rgba(0,242,234,0.3);
+  padding: 0.5em 0;
+  font-size: 1rem;
+  color: var(--text-color);
+  font-family: inherit;
+  outline: none;
+  transition: border-color 0.3s ease;
+}
+
+.form-group input:focus {
+  border-color: var(--primary-color);
+  box-shadow: 0 0 10px var(--primary-color);
+}
+
+/* --- Buttons --- */
+button.add {
+  background: transparent;
+  border: 2px solid var(--primary-color);
+  color: var(--primary-color);
+  padding: 10px 18px;
+  cursor: pointer;
+  border-radius: 6px;
+  font-weight: bold;
+  transition: all 0.3s;
+}
+
+button.add:hover {
+  background-color: var(--primary-color);
+  color: var(--bg-color);
+  box-shadow: 0 0 15px var(--primary-color);
+}
+
+/* --- Tables --- */
+table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 20px;
+  border: 1px solid rgba(0,242,234,0.3);
+  box-shadow: 0 0 10px rgba(0,242,234,0.1);
+}
+
+th, td {
+  border: 1px solid rgba(0,242,234,0.2);
+  padding: 8px;
+  text-align: center;
+  color: var(--text-color);
+}
+
+th {
+  background-color: #0a0a0a;
+  color: var(--primary-color);
+  text-shadow: 0 0 5px var(--primary-color);
+}
+
+td button {
+  background: transparent;
+  border: 2px solid var(--secondary-color);
+  color: var(--secondary-color);
+  padding: 4px 8px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-weight: bold;
+  transition: all 0.3s;
+}
+
+td button:hover {
+  background-color: var(--secondary-color);
+  color: var(--bg-color);
+  box-shadow: 0 0 10px var(--secondary-color);
+}
+
+/* --- Glitch Animation --- */
+@keyframes glitch {
+  0% { transform: translate(0,0); }
+  20% { transform: translate(-2px,2px); }
+  40% { transform: translate(2px,-2px); }
+  60% { transform: translate(-1px,1px); }
+  80% { transform: translate(1px,-1px); }
+  100% { transform: translate(0,0); }
+}
+
+.glitch-text {
+  display: inline-block;
+  position: relative;
+}
+
+.glitch-text::before,
+.glitch-text::after {
+  content: attr(data-text);
+  position: absolute;
+  left: 0; top: 0;
+  width: 100%;
+  color: var(--primary-color);
+  clip: rect(0, 9999px, 0, 0);
+}
+
+.glitch-text:hover::before,
+.glitch-text:hover::after {
+  animation: glitch 0.5s infinite;
+}
+</style>
+</head>
+<body>
+
+<header>
+<h2>Admin Dashboard</h2>
+<button onclick="logout()">Logout</button>
+</header>
+
+<div class="container">
+  <div class="tabs">
+    <button class="tab active" id="tabStudents" onclick="showTab('students')">Students</button>
+    <button class="tab" id="tabFaculty" onclick="showTab('faculty')">Faculty</button>
+    <button class="tab" id="tabCourses" onclick="showTab('courses')">Courses</button>
+  </div>
+
+  <div id="roleContainer">
+    <div class="glitch-form-wrapper" id="formContainer"></div>
+    <table id="dataTable"></table>
+  </div>
+</div>
+
+<script>
+// Logout
+function logout() { localStorage.clear(); location.href='login.html'; }
+
+// Tab selection
+function showTab(tab) {
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.getElementById('tab' + tab.charAt(0).toUpperCase() + tab.slice(1)).classList.add('active');
+
+  if(tab==='students') loadStudents();
+  if(tab==='faculty') loadFaculty();
+  if(tab==='courses') loadCourses();
+}
+
+// ---------- STUDENTS ----------
+async function loadStudents() {
+  const form = document.getElementById('formContainer');
+  form.innerHTML = `
+    <div class="form-group"><input id="student_Id" placeholder="Student ID"></div>
+    <div class="form-group"><input id="first_name" placeholder="First Name"></div>
+    <div class="form-group"><input id="last_name" placeholder="Last Name"></div>
+    <div class="form-group"><input id="email" placeholder="Email"></div>
+    <div class="form-group"><input id="phone" placeholder="Phone"></div>
+    <div class="form-group"><input id="DOB" type="date"></div>
+    <div class="form-group"><input id="dept_Id" placeholder="Dept ID"></div>
+    <!-- <div class="form-group"><input id="user_Id" placeholder="User ID"></div> -->
+    <button class="add" onclick="addStudent()">Add Student</button>
+  `;
+  const table = document.getElementById('dataTable');
+  table.innerHTML = '<tr><th>ID</th><th>Name</th><th>Email</th><th>Phone</th><th>DOB</th><th>Dept ID</th><th>User ID</th><th>Action</th></tr>';
+  try{
+    const res = await fetch('/admin/students');
+    const data = await res.json();
+    data.forEach(s=>{
+      table.innerHTML += `<tr>
+        <td>${s.student_Id}</td>
+        <td>${s.first_name} ${s.last_name}</td>
+        <td>${s.email}</td>
+        <td>${s.phone}</td>
+        <td>${s.DOB}</td>
+        <td>${s.dept_Id}</td>
+        <td>${s.user_Id}</td>
+        <td><button onclick="deleteStudent('${s.student_Id}')">Delete</button></td>
+      </tr>`;
+    });
+  }catch(e){ console.error(e); }
+}
+
+async function addStudent() {
+  const s = {
+    student_Id: student_Id.value,
+    first_name: first_name.value,
+    last_name: last_name.value,
+    email: email.value,
+    phone: phone.value,
+    DOB: DOB.value,
+    dept_Id: dept_Id.value,
+    // user_Id: user_Id.value
+  };
+  await fetch('/admin/students',{method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(s)});
+  loadStudents();
+}
+
+async function deleteStudent(id){
+  await fetch('/admin/students/'+id,{method:'DELETE'});
+  loadStudents();
+}
+
+// ---------- FACULTY ----------
+async function loadFaculty() {
+  const form = document.getElementById('formContainer');
+  form.innerHTML = `
+    <div class="form-group"><input id="faculty_first" placeholder="First Name"></div>
+    <div class="form-group"><input id="faculty_last" placeholder="Last Name"></div>
+    <div class="form-group"><input id="faculty_email" placeholder="Email"></div>
+    <div class="form-group"><input id="faculty_phone" placeholder="Phone"></div>
+    <div class="form-group"><input id="designation" placeholder="Designation"></div>
+    <div class="form-group"><input id="dept_Id_faculty" placeholder="Dept ID"></div>
+   <!-- <div class="form-group"><input id="user_Id_faculty" placeholder="User ID"></div> -->
+    <button class="add" onclick="addFaculty()">Add Faculty</button>
+  `;
+  const table = document.getElementById('dataTable');
+  table.innerHTML = '<tr><th>ID</th><th>Name</th><th>Email</th><th>Phone</th><th>Designation</th><th>Dept</th><th>User ID</th><th>Action</th></tr>';
+  try{
+    const res = await fetch('/admin/faculty');
+    const data = await res.json();
+    data.forEach(f=>{
+      table.innerHTML += `<tr>
+        <td>${f.faculty_Id}</td>
+        <td>${f.first_name} ${f.last_name}</td>
+        <td>${f.email}</td>
+        <td>${f.phone}</td>
+        <td>${f.designation}</td>
+        <td>${f.dept_Id}</td>
+        <td>${f.user_Id}</td>
+        <td><button onclick="deleteFaculty('${f.faculty_Id}')">Delete</button></td>
+      </tr>`;
+    });
+  }catch(e){ console.error(e); }
+}
+
+async function addFaculty() {
+  const f = {
+    first_name: faculty_first.value,
+    last_name: faculty_last.value,
+    email: faculty_email.value,
+    phone: faculty_phone.value,
+    designation: designation.value,
+    dept_Id: dept_Id_faculty.value,
+    // user_Id: user_Id_faculty.value
+  };
+  await fetch('/admin/faculty',{method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(f)});
+  loadFaculty();
+}
+
+async function deleteFaculty(id){
+  await fetch('/admin/faculty/'+id,{method:'DELETE'});
+  loadFaculty();
+}
+
+// ---------- COURSES ----------
+async function loadCourses() {
+  const form = document.getElementById('formContainer');
+  form.innerHTML = `
+    <div class="form-group"><input id="course_Id" placeholder="Course ID"></div>
+    <div class="form-group"><input id="course_name" placeholder="Course Name"></div>
+    <div class="form-group"><input id="credits" placeholder="Credits"></div>
+    <div class="form-group"><input id="dept_Id_course" placeholder="Dept ID"></div>
+    <button class="add" onclick="addCourse()">Add Course</button>
+  `;
+  const table = document.getElementById('dataTable');
+  table.innerHTML = '<tr><th>ID</th><th>Name</th><th>Credits</th><th>Dept</th><th>Action</th></tr>';
+  try{
+    const res = await fetch('/admin/courses');
+    const data = await res.json();
+    data.forEach(c=>{
+      table.innerHTML += `<tr>
+        <td>${c.course_Id}</td>
+        <td>${c.course_name}</td>
+        <td>${c.credits}</td>
+        <td>${c.dept_Id}</td>
+        <td><button onclick="deleteCourse('${c.course_Id}')">Delete</button></td>
+      </tr>`;
+    });
+  }catch(e){ console.error(e); }
+}
+
+async function addCourse() {
+  const c = { course_Id: course_Id.value, course_name: course_name.value, credits: credits.value, dept_Id: dept_Id_course.value };
+  await fetch('/admin/courses',{method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(c)});
+  loadCourses();
+}
+
+async function deleteCourse(id){
+  await fetch('/admin/courses/'+id,{method:'DELETE'});
+  loadCourses();
+}
+
+// Default
+loadStudents();
+</script>
+</body>
+</html>

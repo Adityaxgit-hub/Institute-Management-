@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Student Dashboard</title>
+<style>
+:root {
+  --bg-color: #0d0d0d;
+  --primary-color: #00f2ea;
+  --secondary-color: #a855f7;
+  --text-color: #e5e5e5;
+  --font-family: "Fira Code", Consolas, "Courier New", Courier, monospace;
+}
+
+/* --- General Body --- */
+body {
+  margin: 0;
+  font-family: var(--font-family);
+  background-color: #050505;
+  color: var(--text-color);
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  min-height: 100vh;
+  padding: 20px;
+}
+
+/* --- Container Card --- */
+.container {
+  width: 90%;
+  max-width: 900px;
+  background-color: var(--bg-color);
+  border: 1px solid rgba(0,242,234,0.2);
+  box-shadow: 0 0 20px rgba(0,242,234,0.2), inset 0 0 10px rgba(0,0,0,0.5);
+  padding: 30px;
+  overflow: hidden;
+  border-radius: 12px;
+}
+
+/* --- Header --- */
+.container h2 {
+  font-size: 2rem;
+  font-weight: 800;
+  margin-bottom: 20px;
+  color: var(--primary-color);
+}
+
+/* --- Info Box --- */
+#studentInfo {
+  background-color: rgba(0,0,0,0.3);
+  padding: 20px;
+  margin-bottom: 20px;
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--primary-color);
+  border-left: 3px solid var(--secondary-color);
+  box-shadow: 0 0 10px rgba(0,242,234,0.2) inset;
+}
+
+/* --- Table Styling --- */
+.table-container {
+  overflow-x: auto;
+  margin-bottom: 20px;
+}
+
+.table-container h3 {
+  font-size: 1.2rem;
+  margin-bottom: 10px;
+  color: var(--primary-color);
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  background-color: rgba(0,0,0,0.3);
+}
+
+th, td {
+  padding: 12px 10px;
+  text-align: left;
+  border-bottom: 1px solid var(--primary-color);
+  font-weight: 600;
+  color: var(--text-color);
+}
+
+th {
+  background-color: rgba(0,0,0,0.5);
+  color: var(--primary-color);
+}
+
+/* --- Logout Button --- */
+.logout {
+  background-color: transparent;
+  color: var(--primary-color);
+  padding: 12px 20px;
+  border: 2px solid var(--primary-color);
+  font-weight: bold;
+  cursor: pointer;
+  border-radius: 8px;
+  transition: all 0.3s ease;
+}
+
+.logout:hover {
+  background-color: var(--primary-color);
+  color: var(--bg-color);
+  box-shadow: 0 0 25px var(--primary-color);
+}
+
+/* --- Glitch Animation --- */
+@keyframes glitch-anim {
+  0% { transform: translate(0); clip-path: inset(0 0 0 0);}
+  20% { transform: translate(-5px,3px); clip-path: inset(50% 0 20% 0);}
+  40% { transform: translate(3px,-2px); clip-path: inset(20% 0 60% 0);}
+  60% { transform: translate(-4px,2px); clip-path: inset(80% 0 5% 0);}
+  80% { transform: translate(4px,-3px); clip-path: inset(30% 0 45% 0);}
+  100% { transform: translate(0); clip-path: inset(0 0 0 0);}
+}
+</style>
+</head>
+<body>
+
+<div class="container">
+  <h2>Student Dashboard</h2>
+  <div id="studentInfo"></div>
+
+  <div class="table-container">
+    <h3>Courses</h3>
+    <table id="coursesTable">
+      <tr><th>Course ID</th><th>Course Name</th><th>Faculty</th></tr>
+    </table>
+  </div>
+
+  <div class="table-container">
+    <h3>Attendance</h3>
+    <table id="attendanceTable">
+      <tr><th>Date</th><th>Course ID</th><th>Status</th></tr>
+    </table>
+  </div>
+
+  <button class="logout" onclick="logout()">Logout</button>
+</div>
+
+<script>
+async function loadData() {
+  const userId = localStorage.getItem('userId');
+  if(!userId) {
+    alert('Please log in first!');
+    window.location.href = 'login.html';
+    return;
+  }
+
+  try {
+    const res = await fetch(`/student/${userId}`);
+    const data = await res.json();
+
+    document.getElementById('studentInfo').innerHTML =
+      `<b>${data.student.first_name} ${data.student.last_name}</b><br>
+       ${data.student.email}<br>
+       Department: ${data.student.dept_name}`;
+
+    const coursesTable = document.getElementById('coursesTable');
+    data.courses.forEach(c => {
+      coursesTable.innerHTML += `<tr>
+        <td>${c.course_Id}</td>
+        <td>${c.course_name}</td>
+        <td>${c.faculty_name}</td>
+      </tr>`;
+    });
+
+    const attTable = document.getElementById('attendanceTable');
+    data.attendance.forEach(a => {
+      attTable.innerHTML += `<tr>
+        <td>${a.Attd_Date}</td>
+        <td>${a.course_Id}</td>
+        <td>${a.Status}</td>
+      </tr>`;
+    });
+  } catch(err) {
+    console.error(err);
+    alert('Error loading data');
+  }
+}
+
+function logout() {
+  localStorage.clear();
+  location.href = 'login.html';
+}
+
+loadData();
+</script>
+
+</body>
+</html>
