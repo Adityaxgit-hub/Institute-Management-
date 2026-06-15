@@ -1,0 +1,475 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Student Dashboard | Institute Management Portal</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --primary: #1d4ed8;
+      --primary-dark: #1e3a8a;
+      --accent: #0f766e;
+      --bg: #f3f6fb;
+      --surface: #ffffff;
+      --surface-soft: #f8fafc;
+      --text: #0f172a;
+      --muted: #64748b;
+      --border: #dbe3ef;
+      --success: #047857;
+      --danger: #b91c1c;
+      --warning: #b45309;
+      --shadow: 0 16px 36px rgba(15, 23, 42, 0.08);
+      --radius: 18px;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: "Inter", Arial, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+    }
+
+    .topbar {
+      position: sticky;
+      top: 0;
+      z-index: 10;
+      background: rgba(255, 255, 255, 0.92);
+      border-bottom: 1px solid var(--border);
+      backdrop-filter: blur(14px);
+    }
+
+    .topbar-inner {
+      max-width: 1180px;
+      margin: auto;
+      padding: 18px 28px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 18px;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+
+    .brand-mark {
+      width: 46px;
+      height: 46px;
+      border-radius: 14px;
+      background: linear-gradient(135deg, var(--primary), var(--accent));
+      color: white;
+      display: grid;
+      place-items: center;
+      font-weight: 800;
+      font-size: 0.78rem;
+      letter-spacing: 0.04em;
+      box-shadow: 0 12px 24px rgba(29, 78, 216, 0.22);
+    }
+
+    .brand h1 {
+      margin: 0;
+      font-size: 1.15rem;
+      letter-spacing: -0.02em;
+    }
+
+    .brand span {
+      display: block;
+      color: var(--muted);
+      font-size: 0.82rem;
+      font-weight: 500;
+      margin-top: 2px;
+    }
+
+    .logout {
+      height: 42px;
+      padding: 0 18px;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      background: white;
+      color: var(--text);
+      font: inherit;
+      font-weight: 700;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+
+    .logout:hover {
+      border-color: var(--primary);
+      color: var(--primary);
+      box-shadow: 0 10px 22px rgba(29, 78, 216, 0.12);
+    }
+
+    .page {
+      max-width: 1180px;
+      margin: auto;
+      padding: 32px 28px 48px;
+    }
+
+    .page-header {
+      display: flex;
+      align-items: flex-end;
+      justify-content: space-between;
+      gap: 20px;
+      margin-bottom: 26px;
+    }
+
+    .page-header h2 {
+      margin: 0;
+      font-size: 2rem;
+      letter-spacing: -0.04em;
+    }
+
+    .page-header p {
+      margin: 8px 0 0;
+      color: var(--muted);
+      line-height: 1.6;
+    }
+
+    .profile-card {
+      background: linear-gradient(135deg, rgba(29, 78, 216, 0.96), rgba(15, 118, 110, 0.92));
+      color: white;
+      border-radius: var(--radius);
+      padding: 28px;
+      box-shadow: var(--shadow);
+      margin-bottom: 24px;
+      overflow: hidden;
+      position: relative;
+    }
+
+    .profile-card::after {
+      content: "";
+      position: absolute;
+      right: -70px;
+      top: -70px;
+      width: 220px;
+      height: 220px;
+      border-radius: 50%;
+      background: rgba(255, 255, 255, 0.1);
+    }
+
+    .profile-card h3 {
+      margin: 0 0 8px;
+      font-size: 1.6rem;
+      letter-spacing: -0.03em;
+    }
+
+    .profile-card p {
+      margin: 0;
+      color: rgba(255, 255, 255, 0.84);
+      line-height: 1.6;
+    }
+
+    .profile-meta {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(160px, 1fr));
+      gap: 14px;
+      margin-top: 22px;
+      position: relative;
+      z-index: 1;
+    }
+
+    .meta-tile {
+      padding: 16px;
+      border-radius: 16px;
+      background: rgba(255, 255, 255, 0.13);
+      border: 1px solid rgba(255, 255, 255, 0.18);
+    }
+
+    .meta-tile strong {
+      display: block;
+      margin-bottom: 5px;
+      font-size: 1.2rem;
+    }
+
+    .meta-tile span {
+      color: rgba(255, 255, 255, 0.78);
+      font-size: 0.88rem;
+    }
+
+    .section-title {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      margin: 28px 0 14px;
+    }
+
+    .section-title h3 {
+      margin: 0;
+      font-size: 1.15rem;
+      letter-spacing: -0.02em;
+    }
+
+    .section-title span {
+      color: var(--muted);
+      font-size: 0.9rem;
+    }
+
+    .dashboard-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      overflow: hidden;
+    }
+
+    .table-wrap {
+      overflow-x: auto;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      min-width: 680px;
+    }
+
+    th,
+    td {
+      padding: 16px 18px;
+      border-bottom: 1px solid var(--border);
+      text-align: left;
+      vertical-align: middle;
+      font-size: 0.92rem;
+    }
+
+    th {
+      background: #f8fafc;
+      color: #475569;
+      font-size: 0.78rem;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      font-weight: 800;
+    }
+
+    tr:hover td {
+      background: #fbfdff;
+    }
+
+    .status-pill {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 86px;
+      height: 30px;
+      border-radius: 999px;
+      font-weight: 800;
+      font-size: 0.82rem;
+    }
+
+    .status-pill.present {
+      color: var(--success);
+      background: #ecfdf5;
+      border: 1px solid #bbf7d0;
+    }
+
+    .status-pill.absent {
+      color: var(--danger);
+      background: #fef2f2;
+      border: 1px solid #fecaca;
+    }
+
+    .empty {
+      padding: 42px 24px;
+      text-align: center;
+      color: var(--muted);
+    }
+
+    .loading {
+      display: grid;
+      place-items: center;
+      min-height: 220px;
+      color: var(--muted);
+    }
+
+    @media (max-width: 900px) {
+      .page-header {
+        align-items: flex-start;
+        flex-direction: column;
+      }
+
+      .profile-meta {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    @media (max-width: 640px) {
+      .page {
+        padding: 24px 16px 36px;
+      }
+
+      .topbar-inner {
+        padding: 16px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <header class="topbar">
+    <div class="topbar-inner">
+      <div class="brand">
+        <div class="brand-mark">IMP</div>
+        <div>
+          <h1>Student Dashboard</h1>
+          <span>Academic overview and attendance</span>
+        </div>
+      </div>
+      <button class="logout" onclick="logout()">Logout</button>
+    </div>
+  </header>
+
+  <main class="page">
+    <section class="page-header">
+      <div>
+        <h2>Student Portal</h2>
+        <p>View enrolled courses, assigned faculty, and attendance records.</p>
+      </div>
+    </section>
+
+    <section id="profileCard" class="profile-card">
+      <div class="loading">Loading student profile...</div>
+    </section>
+
+    <section>
+      <div class="section-title">
+        <h3>Enrolled Courses</h3>
+        <span id="courseCount">0 courses</span>
+      </div>
+      <div class="dashboard-card">
+        <div class="table-wrap">
+          <table id="coursesTable">
+            <thead>
+              <tr><th>Course ID</th><th>Course Name</th><th>Faculty</th></tr>
+            </thead>
+            <tbody>
+              <tr><td colspan="3" class="empty">Loading courses...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <div class="section-title">
+        <h3>Attendance Record</h3>
+        <span id="attendanceCount">0 records</span>
+      </div>
+      <div class="dashboard-card">
+        <div class="table-wrap">
+          <table id="attendanceTable">
+            <thead>
+              <tr><th>Date</th><th>Course ID</th><th>Status</th></tr>
+            </thead>
+            <tbody>
+              <tr><td colspan="3" class="empty">Loading attendance...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    function formatDate(dateString) {
+      if (!dateString) return 'Not available';
+      return new Date(dateString).toLocaleDateString('en-IN', {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric'
+      });
+    }
+
+    async function loadData() {
+      const userId = localStorage.getItem('userId');
+      if (!userId) {
+        alert('Please log in first!');
+        window.location.href = 'login.html';
+        return;
+      }
+
+      try {
+        const res = await fetch(`/student/${userId}`);
+        if (!res.ok) throw new Error('Failed to load student data');
+        const data = await res.json();
+
+        document.getElementById('profileCard').innerHTML = `
+          <h3>${data.student.first_name} ${data.student.last_name}</h3>
+          <p>${data.student.email}</p>
+          <div class="profile-meta">
+            <div class="meta-tile">
+              <strong>${data.student.student_Id}</strong>
+              <span>Student ID</span>
+            </div>
+            <div class="meta-tile">
+              <strong>${data.student.dept_name}</strong>
+              <span>Department</span>
+            </div>
+            <div class="meta-tile">
+              <strong>${formatDate(data.student.DOB)}</strong>
+              <span>Date of Birth</span>
+            </div>
+          </div>
+        `;
+
+        const coursesTable = document.getElementById('coursesTable');
+        document.getElementById('courseCount').textContent = `${data.courses.length} courses`;
+
+        if (data.courses.length === 0) {
+          coursesTable.innerHTML = '<tbody><tr><td colspan="3" class="empty">No enrolled courses found.</td></tr></tbody>';
+        } else {
+          coursesTable.innerHTML = `
+            <tbody>
+              ${data.courses.map(c => `
+                <tr>
+                  <td>${c.course_Id}</td>
+                  <td>${c.course_name}</td>
+                  <td>${c.faculty_name}</td>
+                </tr>
+              `).join('')}
+            </tbody>
+          `;
+        }
+
+        const attTable = document.getElementById('attendanceTable');
+        document.getElementById('attendanceCount').textContent = `${data.attendance.length} records`;
+
+        if (data.attendance.length === 0) {
+          attTable.innerHTML = '<tbody><tr><td colspan="3" class="empty">No attendance records found.</td></tr></tbody>';
+        } else {
+          attTable.innerHTML = `
+            <tbody>
+              ${data.attendance.map(a => `
+                <tr>
+                  <td>${formatDate(a.Attd_Date)}</td>
+                  <td>${a.course_Id}</td>
+                  <td><span class="status-pill ${a.Status.toLowerCase()}">${a.Status}</span></td>
+                </tr>
+              `).join('')}
+            </tbody>
+          `;
+        }
+      } catch (err) {
+        console.error(err);
+        document.getElementById('profileCard').innerHTML = '<div class="loading">Unable to load student profile.</div>';
+        alert('Error loading data');
+      }
+    }
+
+    function logout() {
+      localStorage.clear();
+      location.href = 'login.html';
+    }
+
+    loadData();
+  </script>
+</body>
+</html>
