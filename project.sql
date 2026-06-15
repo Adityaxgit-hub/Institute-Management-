@@ -101,11 +101,11 @@ INSERT INTO Department (dept_name) VALUES
 
 -- 🔹 Faculty Users
 INSERT INTO Users (username, password, role) VALUES
-('ravi.kumar', 'ravi123', 'faculty'),
-('anita.sharma', 'anita123', 'faculty'),
-('vikram.patel', 'vikram123', 'faculty'),
-('neha.verma', 'neha123', 'faculty'),
-('suresh.reddy', 'suresh123', 'faculty');
+('ravi.kumar', '$2b$10$1mwsNX03ziDjGKiL9UYaUO1B9WYuSy3hvtqglQSfdxfKLIeSzswxK', 'faculty'),
+('anita.sharma', '$2b$10$YMQ69oaI31rTAMZsVCjJjewG1kjHhC7tT5vcdNYXreqZRi2LQFpkO', 'faculty'),
+('vikram.patel', '$2b$10$emJ.U6KKR8v9bBd6EYgb5eGw5ezxDHFSAg89xUGomDFdlBpbeFWvO', 'faculty'),
+('neha.verma', '$2b$10$/EkBLucPxklDtMmk.I8VuepDZybf5kgYhJdtppTb7a3FO3d5RNgvm', 'faculty'),
+('suresh.reddy', '$2b$10$ivD3bPTBLwpT7Td6VDfq8upRE0pvIT.nERGVx5yxplPGfqwsQB6ha', 'faculty');
 
 -- 🔹 Faculty Members
 INSERT INTO Faculty (first_name, last_name, email, phone, designation, join_date, user_Id)
@@ -134,16 +134,16 @@ INSERT INTO Courses (course_Id, course_name, credits, dept_Id) VALUES
 
 -- 🔹 Student Users (first 10 only for brevity)
 INSERT INTO Users (username, password, role) VALUES
-('abhiinay', 'abhiinay123', 'student'),
-('aditya', 'aditya123', 'student'),
-('giridhar', 'giridhar123', 'student'),
-('praveen', 'praveen123', 'student'),
-('aardhya', 'aardhya123', 'student'),
-('aditi', 'aditi123', 'student'),
-('ananya', 'ananya123', 'student'),
-('ishitha', 'ishitha123', 'student'),
-('diya', 'diya123', 'student'),
-('meera', 'meera123', 'student');
+('abhiinay', '$2b$10$UvDZMZu3xwhBjSu8NzTdKuP6/sDu4GUZL3Nbq5w94sQMrfkRzfFWu', 'student'),
+('aditya', '$2b$10$2OhABy9d/VH2AcrKI5c2oezF9zT6JXcv/I7/r.9AQEocXD/qtuiEC', 'student'),
+('giridhar', '$2b$10$l2d/o04ROU4fw1qfLZoNz.a1uNs4DZIeF5/SDzCBR1gx55PCnzJ8G', 'student'),
+('praveen', '$2b$10$YooJXyZWDe4aIQlSxJW.ReLrguC550l8V3/jrNmF/TpMI9h6xruXm', 'student'),
+('aardhya', '$2b$10$NE4QytUfmIELAkZ.yeG7/ukUxc2uwmivHNXNHv34KMkRT3clRvcpm', 'student'),
+('aditi', '$2b$10$TWck11IVDbdZpWl7x5tYiun0FfqvVJb2EoF2XmyByZz1wJUBPmwl6', 'student'),
+('ananya', '$2b$10$MCbaIYLbetUC8myAnupmJe2B/OzZ9nCrxZZPvkM1yfc3b.1W1geiG', 'student'),
+('ishitha', '$2b$10$7FbtTas96hmaj5YAagoRJeK9h31.vgpAINqQ.R0CiZ0Ht1NOJ6B3y', 'student'),
+('diya', '$2b$10$TlKGgrQee4x7.VxHHZtzb.H/FY/8c/Auz1C.tyb8GoZw8RB/LtOkW', 'student'),
+('meera', '$2b$10$n82imQ3FaH0d3Gz0YH14We8OBbRm.pav5OCcN3JgGjQI9qtbBW5Bm', 'student');
 
 -- 🔹 Students
 INSERT INTO Students (student_Id, first_name, last_name, email, phone, DOB, admission_date, dept_Id, user_Id)
@@ -273,4 +273,4 @@ SELECT * FROM user_info;
 
 
 INSERT INTO Users (username, password, role) VALUES
-('admin', 'admin123', 'admin');
+('admin', '$2b$10$7.LqrNVhrgufIQB8l0gd9e/6BlwgKIzy7QKaKAtzJF8NfTpd8q6uu', 'admin');

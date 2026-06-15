@@ -2,6 +2,8 @@ const express = require("express");
 const bodyParser = require("body-parser");
 const cors = require("cors");
 const mysql = require("mysql2");
+const bcrypt = require("bcrypt");
+const saltRounds = 10;
 
 const app = express();
 app.use(cors());
@@ -25,12 +27,17 @@ db.connect((err) => {
 app.post("/login", (req, res) => {
   const { username, password } = req.body;
   db.query(
-    "SELECT * FROM Users WHERE username=? AND password=?",
-    [username, password],
-    (err, results) => {
+    "SELECT * FROM Users WHERE username=?",
+    [username],
+    async (err, results) => {
       if (err) return res.status(500).json({ error: err.message });
       if (results.length === 0)
         return res.status(401).json({ message: "Invalid credentials" });
+
+      const match = await bcrypt.compare(password, results[0].password);
+      if (!match)
+        return res.status(401).json({ message: "Invalid credentials" });
+
       res.json({ user: results[0] });
     }
   );
@@ -121,7 +128,7 @@ app.get("/admin/students", (req, res) => {
   });
 });
 
-app.post("/admin/students", (req, res) => {
+app.post("/admin/students", async (req, res) => {
   const {
     student_Id,
     first_name,
@@ -135,10 +142,11 @@ app.post("/admin/students", (req, res) => {
   // auto-generate login credentials
   const username = (first_name.concat(last_name)).toLowerCase(); // e.g., "s012"
   const password = (first_name.concat(last_name)).toLowerCase() + "123"; // e.g., "rahul123"
+  const hashedPassword = await bcrypt.hash(password, saltRounds);
 
   const userQuery = "INSERT INTO Users (username, password, role) VALUES (?, ?, 'student')";
 
-  db.query(userQuery, [username, password], (userErr, userResult) => {
+  db.query(userQuery, [username,hashedPassword], (userErr, userResult) => {
     if (userErr) {
       console.error("❌ User creation failed:", userErr.sqlMessage);
       return res.status(500).json({ error: "User creation failed: " + userErr.sqlMessage });
@@ -238,16 +246,16 @@ app.get("/admin/faculty", (req, res) => {
 });
 
 // ---------------- ADD FACULTY ----------------
-app.post("/admin/faculty", (req, res) => {
+app.post("/admin/faculty", async (req, res) => {
   const { first_name, last_name, email, phone, designation, dept_Id } = req.body;
 
   // Step 1: Auto-generate username and password
   const username = (first_name + last_name).toLowerCase();
   const password = (first_name + last_name).toLowerCase() + "123";
-
+  const hashedPassword = await bcrypt.hash(password, saltRounds); // hashed pass
   // Step 2: Create new user in Users table
   const userQuery = "INSERT INTO Users (username, password, role) VALUES (?, ?, 'faculty')";
-  db.query(userQuery, [username, password], (userErr, userResult) => {
+  db.query(userQuery, [username, hashedPassword], (userErr, userResult) => {
     if (userErr) {
       console.error("❌ User creation failed:", userErr.sqlMessage);
       return res.status(500).json({ error: "User creation failed: " + userErr.sqlMessage });
