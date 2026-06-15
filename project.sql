@@ -108,13 +108,13 @@ INSERT INTO Users (username, password, role) VALUES
 ('suresh.reddy', '$2b$10$ivD3bPTBLwpT7Td6VDfq8upRE0pvIT.nERGVx5yxplPGfqwsQB6ha', 'faculty');
 
 -- 🔹 Faculty Members
-INSERT INTO Faculty (first_name, last_name, email, phone, designation, join_date, user_Id)
+INSERT INTO Faculty (first_name, last_name, email, phone, designation, join_date, dept_Id, user_Id)
 VALUES
-('Ravi', 'Kumar', 'ravi.kumar@nitp.ac.in', '9000000001', 'Professor', '2015-07-12', 1),
-('Anita', 'Sharma', 'anita.sharma@nitp.ac.in', '9000000002', 'Associate Professor', '2016-08-10', 2),
-('Vikram', 'Patel', 'vikram.patel@nitp.ac.in', '9000000003', 'Assistant Professor', '2019-01-05', 3),
-('Neha', 'Verma', 'neha.verma@nitp.ac.in', '9000000004', 'HOD', '2013-03-20', 4),
-('Suresh', 'Reddy', 'suresh.reddy@nitp.ac.in', '9000000005', 'Professor', '2014-11-18', 5);
+('Ravi', 'Kumar', 'ravi.kumar@nitp.ac.in', '9000000001', 'Professor', '2015-07-12', 1, 1),
+('Anita', 'Sharma', 'anita.sharma@nitp.ac.in', '9000000002', 'Associate Professor', '2016-08-10', 2, 2),
+('Vikram', 'Patel', 'vikram.patel@nitp.ac.in', '9000000003', 'Assistant Professor', '2019-01-05', 3, 3),
+('Neha', 'Verma', 'neha.verma@nitp.ac.in', '9000000004', 'HOD', '2013-03-20', 4, 4),
+('Suresh', 'Reddy', 'suresh.reddy@nitp.ac.in', '9000000005', 'Professor', '2014-11-18', 5, 5);
 
 -- 🔹 Assign HODs
 UPDATE Department SET HOD_Id = 4 WHERE dept_Id = 1;

@@ -19,8 +19,8 @@ const db = mysql.createConnection({
 });
 
 db.connect((err) => {
-  if (err) console.error("❌ Database connection failed:", err);
-  else console.log("✅ Connected to MySQL Database");
+  if (err) console.error("Database connection failed:", err);
+  else console.log("Connected to MySQL Database");
 });
 
 // ---------------- LOGIN ----------------
@@ -30,13 +30,24 @@ app.post("/login", (req, res) => {
     "SELECT * FROM Users WHERE username=?",
     [username],
     async (err, results) => {
-      if (err) return res.status(500).json({ error: err.message });
-      if (results.length === 0)
-        return res.status(401).json({ message: "Invalid credentials" });
+      if (err) {
+        console.error("Login query failed:", err.sqlMessage || err.message);
+        return res.status(500).json({ message: "Database error", error: err.message });
+      }
+      if (results.length === 0) {
+        return res.status(401).json({
+          message: "Invalid username",
+          error: `No user found for username: ${username}`,
+        });
+      }
 
       const match = await bcrypt.compare(password, results[0].password);
-      if (!match)
-        return res.status(401).json({ message: "Invalid credentials" });
+      if (!match) {
+        return res.status(401).json({
+          message: "Invalid password",
+          error: `Password does not match for username: ${username}`,
+        });
+      }
 
       res.json({ user: results[0] });
     }
@@ -148,7 +159,7 @@ app.post("/admin/students", async (req, res) => {
 
   db.query(userQuery, [username,hashedPassword], (userErr, userResult) => {
     if (userErr) {
-      console.error("❌ User creation failed:", userErr.sqlMessage);
+      console.error("User creation failed:", userErr.sqlMessage);
       return res.status(500).json({ error: "User creation failed: " + userErr.sqlMessage });
     }
 
@@ -164,13 +175,13 @@ app.post("/admin/students", async (req, res) => {
       [student_Id, first_name, last_name, email, phone, DOB, dept_Id, newUserId],
       (studentErr) => {
         if (studentErr) {
-          console.error("❌ Student insert failed:", studentErr.sqlMessage);
+          console.error("Student insert failed:", studentErr.sqlMessage);
           db.query("DELETE FROM Users WHERE user_Id = ?", [newUserId]);
           return res.status(500).json({ error: "Student insert failed: " + studentErr.sqlMessage });
         }
 
         res.json({
-          message: "✅ Student and User created successfully!",
+          message: "Student and User created successfully!",
           login: { username, password }
         });
       }
@@ -185,7 +196,7 @@ app.delete("/admin/students/:id", (req, res) => {
   const findUser = "SELECT user_Id FROM Students WHERE student_Id = ?";
   db.query(findUser, [id], (findErr, result) => {
     if (findErr) {
-      console.error("❌ Find Error:", findErr.sqlMessage);
+      console.error("Find Error:", findErr.sqlMessage);
       return res.status(500).json({ error: findErr.sqlMessage });
     }
 
@@ -199,7 +210,7 @@ app.delete("/admin/students/:id", (req, res) => {
     const deleteStudent = "DELETE FROM Students WHERE student_Id = ?";
     db.query(deleteStudent, [id], (delErr) => {
       if (delErr) {
-        console.error("❌ Student Delete Error:", delErr.sqlMessage);
+        console.error("Student Delete Error:", delErr.sqlMessage);
         return res.status(500).json({ error: delErr.sqlMessage });
       }
 
@@ -207,12 +218,12 @@ app.delete("/admin/students/:id", (req, res) => {
       const deleteUser = "DELETE FROM Users WHERE user_Id = ?";
       db.query(deleteUser, [userId], (userErr) => {
         if (userErr) {
-          console.error("⚠️ User Delete Error:", userErr.sqlMessage);
+          console.error("User Delete Error:", userErr.sqlMessage);
           return res.status(500).json({ error: userErr.sqlMessage });
         }
 
         res.json({
-          message: "🗑️ Student and linked User deleted successfully!"
+          message: "Student and linked User deleted successfully!"
         });
       });
     });
@@ -223,7 +234,7 @@ app.delete("/admin/students/:id", (req, res) => {
 
 
 // =====================================================
-// 🧑‍🏫 FACULTY CRUD — with linked Users table integration
+// FACULTY CRUD — with linked Users table integration
 // =====================================================
 
 app.get("/admin/faculty", (req, res) => {
@@ -235,7 +246,7 @@ app.get("/admin/faculty", (req, res) => {
 
 
 // =====================================================
-// 🧑‍🏫 FACULTY CRUD — auto user linking (no user_Id required)
+// FACULTY CRUD — auto user linking (no user_Id required)
 // =====================================================
 
 app.get("/admin/faculty", (req, res) => {
@@ -257,7 +268,7 @@ app.post("/admin/faculty", async (req, res) => {
   const userQuery = "INSERT INTO Users (username, password, role) VALUES (?, ?, 'faculty')";
   db.query(userQuery, [username, hashedPassword], (userErr, userResult) => {
     if (userErr) {
-      console.error("❌ User creation failed:", userErr.sqlMessage);
+      console.error("User creation failed:", userErr.sqlMessage);
       return res.status(500).json({ error: "User creation failed: " + userErr.sqlMessage });
     }
 
@@ -274,14 +285,14 @@ app.post("/admin/faculty", async (req, res) => {
       [first_name, last_name, email, phone, designation, dept_Id, newUserId],
       (facultyErr) => {
         if (facultyErr) {
-          console.error("❌ Faculty insert failed:", facultyErr.sqlMessage);
+          console.error("Faculty insert failed:", facultyErr.sqlMessage);
           // rollback: delete user if faculty insert fails
           db.query("DELETE FROM Users WHERE user_Id = ?", [newUserId]);
           return res.status(500).json({ error: "Faculty insert failed: " + facultyErr.sqlMessage });
         }
 
         res.json({
-          message: "✅ Faculty and User created successfully!",
+          message: "Faculty and User created successfully!",
           login: { username, password }
         });
       }
@@ -297,7 +308,7 @@ app.delete("/admin/faculty/:id", (req, res) => {
   const findUser = "SELECT user_Id FROM Faculty WHERE faculty_Id = ?";
   db.query(findUser, [id], (findErr, result) => {
     if (findErr) {
-      console.error("❌ Find Error:", findErr.sqlMessage);
+      console.error("Find Error:", findErr.sqlMessage);
       return res.status(500).json({ error: findErr.sqlMessage });
     }
 
@@ -311,7 +322,7 @@ app.delete("/admin/faculty/:id", (req, res) => {
     const deleteFaculty = "DELETE FROM Faculty WHERE faculty_Id = ?";
     db.query(deleteFaculty, [id], (delErr) => {
       if (delErr) {
-        console.error("❌ Faculty Delete Error:", delErr.sqlMessage);
+        console.error("Faculty Delete Error:", delErr.sqlMessage);
         return res.status(500).json({ error: delErr.sqlMessage });
       }
 
@@ -319,12 +330,12 @@ app.delete("/admin/faculty/:id", (req, res) => {
       const deleteUser = "DELETE FROM Users WHERE user_Id = ?";
       db.query(deleteUser, [userId], (userErr) => {
         if (userErr) {
-          console.error("⚠️ User Delete Error:", userErr.sqlMessage);
+          console.error("User Delete Error:", userErr.sqlMessage);
           return res.status(500).json({ error: userErr.sqlMessage });
         }
 
         res.json({
-          message: "🗑️ Faculty and linked User deleted successfully!"
+          message: "Faculty and linked User deleted successfully!"
         });
       });
     });
@@ -346,10 +357,10 @@ app.post("/admin/courses", (req, res) => {
     "INSERT INTO Courses (course_Id, course_name, credits, dept_Id) VALUES (?, ?, ?, ?)";
   db.query(sql, [course_Id, course_name, credits, dept_Id], (err) => {
     if (err) {
-      console.error("❌ SQL Error:", err.sqlMessage);
+      console.error("SQL Error:", err.sqlMessage);
       return res.status(500).json({ error: err.sqlMessage });
     }
-    res.json({ message: "✅ Course added successfully" });
+    res.json({ message: "Course added successfully" });
   });
 });
 
@@ -357,15 +368,15 @@ app.delete("/admin/courses/:id", (req, res) => {
   const { id } = req.params;
   db.query("DELETE FROM Courses WHERE course_Id = ?", [id], (err) => {
     if (err) {
-      console.error("❌ Delete Error:", err.sqlMessage);
+      console.error("SQL Error:", err.sqlMessage);
       return res.status(500).json({ error: err.sqlMessage });
     }
-    res.json({ message: "🗑️ Course deleted successfully" });
+    res.json({ message: "Course deleted successfully" });
   });
 });
 
 // ---------------- SERVER ----------------
 const PORT = 5000;
 app.listen(PORT, () =>
-  console.log(`🚀 Server running on http://localhost:${PORT}/login.html`)
+  console.log(`Server running on http://localhost:${PORT}/login.html`)
 );

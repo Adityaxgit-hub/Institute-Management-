@@ -273,7 +273,14 @@
       <div class="field">
         <label for="password">Password</label>
         <input id="password" type="password" autocomplete="current-password" placeholder="Enter password" />
+        <img src="https://img.icons8.com/ios-glyphs/30/000000/visible--v1.png" alt="Show password" style="position: absolute; right: 16px; top: 50%; transform: translateY(-50%); cursor: pointer;" onclick="togglePasswordVisibility()" />
       </div>
+
+      <div class="forgotPass">
+        <a href="#">Forgot password?</a>
+      </div>
+
+      <br>
 
       <button id="loginBtn">Login to Portal</button>
 
@@ -307,9 +314,18 @@
         else if (data.user.role === 'faculty') location.href = 'faculty.html';
         else location.href = 'admin.html';
       } else {
-        alert(data.message || 'Invalid credentials');
+        alert(data.error || data.message || 'Invalid credentials');
       }
     });
+
+    function togglePasswordVisibility() {
+      const passwordInput = document.getElementById('password');
+      if (passwordInput.type === 'password') {
+        passwordInput.type = 'text';
+      } else {
+        passwordInput.type = 'password';
+      }
+    }
   </script>
 </body>
 </html>
