@@ -274,3 +274,12 @@ SELECT * FROM user_info;
 
 INSERT INTO Users (username, password, role) VALUES
 ('admin', '$2b$10$7.LqrNVhrgufIQB8l0gd9e/6BlwgKIzy7QKaKAtzJF8NfTpd8q6uu', 'admin');
+
+CREATE TABLE notifications(
+  id INT PRIMARY KEY AUTO_INCREMENT,
+  title VARCHAR(255) NOT NULL,
+  message TEXT NOT NULL,
+  target VARCHAR(10) DEFAULT 'all', -- 'student', 'faculty', 'admin'
+  is_read TINYINT(1) DEFAULT 0,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+)

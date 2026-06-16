@@ -1,11 +1,12 @@
-const express = require("express");
+
 const bodyParser = require("body-parser");
 const cors = require("cors");
 const mysql = require("mysql2");
 const bcrypt = require("bcrypt");
+
 const saltRounds = 10;
 
-const app = express();
+
 app.use(cors());
 app.use(bodyParser.json());
 app.use(express.static("public"));
@@ -21,6 +22,28 @@ const db = mysql.createConnection({
 db.connect((err) => {
   if (err) console.error("Database connection failed:", err);
   else console.log("Connected to MySQL Database");
+});
+
+db.query(`
+  CREATE TABLE IF NOT EXISTS notifications (
+    notification_Id INT PRIMARY KEY AUTO_INCREMENT,
+    title VARCHAR(255) NOT NULL,
+    message TEXT NOT NULL,
+    target VARCHAR(50) NOT NULL,
+    is_read TINYINT(1) NOT NULL DEFAULT 0,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+  )
+`);
+
+app.set("db", db);
+// app.set("io", io);
+app.use(["/notifications", "/api/notifications"], notificationsRoutes);
+
+io.on("connection", (socket) => {
+  console.log("A user connected:", socket.id);
+  socket.on("disconnect", () => {
+    console.log("User disconnected:", socket.id);
+  });
 });
 
 // ---------------- LOGIN ----------------
@@ -375,8 +398,8 @@ app.delete("/admin/courses/:id", (req, res) => {
   });
 });
 
-// ---------------- SERVER ----------------
-const PORT = 5000;
-app.listen(PORT, () =>
-  console.log(`Server running on http://localhost:${PORT}/login.html`)
-);
+// // ---------------- SERVER ----------------
+// const PORT = 5000;
+// server.listen(PORT, () =>
+//   console.log(`Server running on http://localhost:${PORT}/login.html`)
+// );
