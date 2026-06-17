@@ -282,4 +282,30 @@ CREATE TABLE notifications(
   target VARCHAR(10) DEFAULT 'all', -- 'student', 'faculty', 'admin'
   is_read TINYINT(1) DEFAULT 0,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-)
+);
+
+
+
+CREATE TABLE Faculty_Leave (
+
+    leave_Id INT AUTO_INCREMENT PRIMARY KEY,
+
+    faculty_Id INT NOT NULL,
+
+    from_date DATE NOT NULL,
+
+    to_date DATE NOT NULL,
+
+    reason TEXT NOT NULL,
+
+    status ENUM('Pending','Approved','Rejected')
+    DEFAULT 'Pending',
+
+    applied_on TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+
+    FOREIGN KEY (faculty_Id)
+    REFERENCES Faculty(faculty_Id)
+
+);
+
+DESC Faculty;

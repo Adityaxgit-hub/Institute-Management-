@@ -1,0 +1,358 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+
+<meta charset="UTF-8">
+
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<title>Apply Leave | Faculty</title>
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+
+<style>
+
+:root{
+
+--primary:#1d4ed8;
+--primary-dark:#1e3a8a;
+--accent:#0f766e;
+--bg:#f3f6fb;
+--surface:#ffffff;
+--border:#dbe3ef;
+--text:#0f172a;
+--muted:#64748b;
+--shadow:0 16px 36px rgba(15,23,42,.08);
+--radius:18px;
+
+}
+
+*{
+
+box-sizing:border-box;
+font-family:"Inter",sans-serif;
+
+}
+
+body{
+
+margin:0;
+background:var(--bg);
+
+}
+
+.topbar{
+
+background:white;
+border-bottom:1px solid var(--border);
+
+}
+
+.topbar-inner{
+
+max-width:1000px;
+margin:auto;
+padding:18px 28px;
+display:flex;
+justify-content:space-between;
+align-items:center;
+
+}
+
+.brand{
+
+display:flex;
+align-items:center;
+gap:15px;
+
+}
+
+.brand-mark{
+
+width:45px;
+height:45px;
+border-radius:12px;
+background:linear-gradient(135deg,#1d4ed8,#0f766e);
+display:flex;
+align-items:center;
+justify-content:center;
+color:white;
+font-weight:bold;
+
+}
+
+.back-btn{
+
+background:white;
+border:1px solid var(--border);
+padding:10px 18px;
+border-radius:10px;
+cursor:pointer;
+
+}
+
+.page{
+
+max-width:700px;
+margin:40px auto;
+
+}
+
+.card{
+
+background:white;
+padding:30px;
+border-radius:18px;
+box-shadow:var(--shadow);
+
+}
+
+.card h2{
+
+margin-top:0;
+
+}
+
+label{
+
+display:block;
+margin-top:18px;
+margin-bottom:8px;
+font-weight:600;
+
+}
+
+input,
+textarea{
+
+width:100%;
+padding:12px;
+border:1px solid var(--border);
+border-radius:10px;
+font-size:15px;
+
+}
+
+textarea{
+
+height:120px;
+resize:none;
+
+}
+
+.buttons{
+
+margin-top:30px;
+display:flex;
+gap:15px;
+
+}
+
+.submit-btn{
+
+background:linear-gradient(135deg,#059669,#0f766e);
+color:white;
+border:none;
+padding:12px 24px;
+border-radius:10px;
+cursor:pointer;
+font-weight:bold;
+
+}
+
+.cancel-btn{
+
+background:#ef4444;
+color:white;
+border:none;
+padding:12px 24px;
+border-radius:10px;
+cursor:pointer;
+font-weight:bold;
+
+}
+
+.submit-btn:hover,
+.cancel-btn:hover{
+
+opacity:.9;
+
+}
+
+</style>
+
+</head>
+
+<body>
+
+<header class="topbar">
+
+<div class="topbar-inner">
+
+<div class="brand">
+
+<div class="brand-mark">
+
+IMP
+
+</div>
+
+<div>
+
+<h3 style="margin:0;">
+
+Faculty Leave
+
+</h3>
+
+<small>Institute Management Portal</small>
+
+</div>
+
+</div>
+
+<button
+class="back-btn"
+onclick="window.location.href='faculty.html'">
+
+Dashboard
+
+</button>
+
+</div>
+
+</header>
+
+<div class="page">
+
+<div class="card">
+
+<h2>Apply Leave</h2>
+
+<form id="leaveForm">
+
+<label>
+
+From Date
+
+</label>
+
+<input
+type="date"
+id="fromDate"
+required>
+
+<label>
+
+To Date
+
+</label>
+
+<input
+type="date"
+id="toDate"
+required>
+
+<label>
+
+Reason
+
+</label>
+
+<textarea
+id="reason"
+placeholder="Enter reason..."
+required>
+
+</textarea>
+
+<div class="buttons">
+
+<button
+type="submit"
+class="submit-btn">
+
+Submit Leave
+
+</button>
+
+<button
+type="button"
+class="cancel-btn"
+onclick="window.location.href='faculty.html'">
+
+Cancel
+
+</button>
+
+</div>
+
+</form>
+
+</div>
+
+</div>
+
+<script>
+
+const facultyId = localStorage.getItem("userId");
+
+document.getElementById("leaveForm")
+.addEventListener("submit", function(e) {
+  e.preventDefault();
+
+  if (!facultyId) {
+    alert("Please log in again before applying for leave.");
+    window.location.href = 'login.html';
+    return;
+  }
+
+  const fromDate = document.getElementById("fromDate").value;
+  const toDate = document.getElementById("toDate").value;
+  const reason = document.getElementById("reason").value.trim();
+
+  if (fromDate > toDate) {
+    alert("From Date cannot be after To Date");
+    return;
+  }
+
+  if (!reason) {
+    alert("Please enter a reason for leave.");
+    return;
+  }
+
+  fetch("/faculty/apply-leave", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({
+      facultyId,
+      fromDate,
+      toDate,
+      reason
+    })
+  })
+  .then(async res => {
+    const data = await res.json();
+    if (!res.ok) {
+      throw new Error(data.message || 'Failed to send leave request');
+    }
+    alert(data.message);
+    window.location.href = "faculty.html";
+  })
+  .catch(err => {
+    console.error(err);
+    alert(err.message || 'Failed to send leave request');
+  });
+});
+
+</script>
+
+</body>
+
+</html>

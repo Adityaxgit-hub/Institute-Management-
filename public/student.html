@@ -543,6 +543,32 @@
         color: var(--muted);
       }
 
+      
+.attendance-card{
+display:flex;
+justify-content:space-between;
+align-items:center;
+gap:20px;
+padding:30px;
+flex-wrap:wrap;
+}
+.attendance-left{display:flex;align-items:center;gap:20px;}
+.attendance-icon{
+width:70px;height:70px;border-radius:18px;
+background:linear-gradient(135deg,#1d4ed8,#0f766e);
+display:flex;align-items:center;justify-content:center;
+font-size:32px;color:#fff;
+}
+.attendance-btn{
+background:linear-gradient(135deg,#1d4ed8,#0f766e);
+color:#fff;border:none;border-radius:12px;
+padding:14px 28px;font-weight:700;cursor:pointer;
+}
+.attendance-btn:hover{
+box-shadow:0 12px 24px rgba(29,78,216,.25);
+}
+
+
       @media (max-width: 900px) {
         .page-header {
           align-items: flex-start;
@@ -645,31 +671,32 @@
           </div>
         </div>
       </section>
-
       <section>
+
         <div class="section-title">
-          <h3>Attendance Record</h3>
-          <span id="attendanceCount">0 records</span>
+          <h3>Student Services</h3>
+          <span>Quick Access</span>
         </div>
+
         <div class="dashboard-card">
-          <div class="table-wrap">
-            <table id="attendanceTable">
-              <thead>
-                <tr>
-                  <th>Date</th>
-                  <th>Course ID</th>
-                  <th>Status</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr>
-                  <td colspan="3" class="empty">Loading attendance...</td>
-                </tr>
-              </tbody>
-            </table>
+          <div class="attendance-card">
+            <div class="attendance-left">
+              <div class="attendance-icon">📅</div>
+              <div>
+                <h3>Attendance</h3>
+                <p>View your attendance records for all enrolled courses.</p>
+              </div>
+            </div>
+
+            <button class="attendance-btn"
+              onclick="window.location.href='student-attendance.html'">
+              View Attendance
+            </button>
           </div>
         </div>
+
       </section>
+
     </main>
 
     <script>
@@ -733,31 +760,6 @@
                   <td>${c.course_Id}</td>
                   <td>${c.course_name}</td>
                   <td>${c.faculty_name}</td>
-                </tr>
-              `,
-                )
-                .join("")}
-            </tbody>
-          `;
-          }
-
-          const attTable = document.getElementById("attendanceTable");
-          document.getElementById("attendanceCount").textContent =
-            `${data.attendance.length} records`;
-
-          if (data.attendance.length === 0) {
-            attTable.innerHTML =
-              '<tbody><tr><td colspan="3" class="empty">No attendance records found.</td></tr></tbody>';
-          } else {
-            attTable.innerHTML = `
-            <tbody>
-              ${data.attendance
-                .map(
-                  (a) => `
-                <tr>
-                  <td>${formatDate(a.Attd_Date)}</td>
-                  <td>${a.course_Id}</td>
-                  <td><span class="status-pill ${a.Status.toLowerCase()}">${a.Status}</span></td>
                 </tr>
               `,
                 )
@@ -870,6 +872,8 @@
         document.body.appendChild(toast);
         setTimeout(() => toast.remove(), 4000);
       }
+
+      
     </script>
   </body>
 </html>

@@ -270,19 +270,21 @@
         <input id="username" type="text" autocomplete="username" placeholder="Enter username" />
       </div>
 
-      <div class="field">
-        <label for="password">Password</label>
-        <input id="password" type="password" autocomplete="current-password" placeholder="Enter password" />
-        <img src="https://img.icons8.com/ios-glyphs/30/000000/visible--v1.png" alt="Show password" style="position: absolute; right: 16px; top: 50%; transform: translateY(-50%); cursor: pointer;" onclick="togglePasswordVisibility()" />
-      </div>
+      <form id="loginForm">
+        <div class="field">
+          <label for="password">Password</label>
+          <input id="password" type="password" autocomplete="current-password" placeholder="Enter password" />
+          <img src="https://img.icons8.com/ios-glyphs/30/000000/visible--v1.png" alt="Show password" style="position: absolute; right: 16px; top: 50%; transform: translateY(-50%); cursor: pointer;" onclick="togglePasswordVisibility()" />
+        </div>
 
-      <div class="forgotPass">
-        <a href="#">Forgot password?</a>
-      </div>
+        <div class="forgotPass">
+          <a href="#">Forgot password?</a>
+        </div>
 
-      <br>
+        <br />
 
-      <button id="loginBtn">Login to Portal</button>
+        <button id="loginBtn" type="submit">Login to Portal</button>
+      </form>
 
       <div class="signup-link">
         New account? <span onclick="location.href='signup.html'">Create account</span>
@@ -296,7 +298,8 @@
   </main>
 
   <script>
-    document.getElementById('loginBtn').addEventListener('click', async () => {
+    document.getElementById('loginForm').addEventListener('submit', async (event) => {
+      event.preventDefault();
       const username = document.getElementById('username').value;
       const password = document.getElementById('password').value;
 

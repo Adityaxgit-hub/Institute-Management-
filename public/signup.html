@@ -269,29 +269,29 @@
       <h2>Sign Up</h2>
       <p class="subtitle">Create a new portal account for academic access.</p>
 
-      <div class="form-grid">
+      <form id="signupForm" class="form-grid">
         <div>
           <label for="username">Username</label>
-          <input id="username" type="text" autocomplete="username" placeholder="Enter username" />
+          <input id="username" name="username" type="text" autocomplete="username" placeholder="Enter username" />
         </div>
 
         <div>
           <label for="password">Password</label>
-          <input id="password" type="password" autocomplete="new-password" placeholder="Enter password" />
+          <input id="password" name="password" type="password" autocomplete="new-password" placeholder="Enter password" />
         </div>
 
         <div>
           <label for="role">Role</label>
-          <select id="role">
+          <select id="role" name="role">
             <option value="" disabled selected>Select role</option>
             <option value="student">Student</option>
             <option value="faculty">Faculty</option>
           </select>
         </div>
 
-        <button id="signupBtn">Create Account</button>
+        <button id="signupBtn" type="submit">Create Account</button>
         <div id="message" class="message"></div>
-      </div>
+      </form>
 
       <div class="login-link">
         Already have an account? <a href="login.html">Login</a>
@@ -306,7 +306,8 @@
       message.className = 'message ' + type;
     }
 
-    document.getElementById('signupBtn').addEventListener('click', async () => {
+    document.getElementById('signupForm').addEventListener('submit', async (event) => {
+      event.preventDefault();
       const username = document.getElementById('username').value;
       const password = document.getElementById('password').value;
       const role = document.getElementById('role').value;

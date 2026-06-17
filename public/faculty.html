@@ -304,6 +304,64 @@
         grid-template-columns: 1fr;
       }
     }
+
+    /* ===========================
+   Attendance Button
+=========================== */
+
+.attendance-btn{
+    background: linear-gradient(135deg,#1d4ed8,#0f766e);
+    color:#fff;
+    border:none;
+    border-radius:12px;
+    padding:10px 20px;
+    font-size:14px;
+    font-weight:700;
+    cursor:pointer;
+    transition:all .3s ease;
+    box-shadow:0 8px 18px rgba(29,78,216,.18);
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+    gap:8px;
+}
+
+.attendance-btn:hover{
+    transform:translateY(-2px);
+    box-shadow:0 14px 28px rgba(29,78,216,.28);
+    background:linear-gradient(135deg,#2563eb,#0891b2);
+}
+
+.attendance-btn:active{
+    transform:scale(.98);
+}
+
+.attendance-btn:focus{
+    outline:none;
+    box-shadow:0 0 0 4px rgba(29,78,216,.18);
+}
+
+
+
+.leave-btn{
+    background:linear-gradient(135deg,#059669,#0f766e);
+    color:white;
+    border:none;
+    border-radius:12px;
+    padding:10px 20px;
+    font-size:14px;
+    font-weight:700;
+    cursor:pointer;
+    transition:.3s;
+    margin-left:10px;
+}
+
+.leave-btn:hover{
+    transform:translateY(-2px);
+    box-shadow:0 12px 24px rgba(5,150,105,.25);
+}
+
+    
   </style>
 </head>
 <body>
@@ -347,10 +405,11 @@
                 <th>Section</th>
                 <th>Semester</th>
                 <th>Year</th>
+                <th>Action</th>
               </tr>
             </thead>
             <tbody>
-              <tr><td colspan="5" class="empty">Loading courses...</td></tr>
+              <tr><td colspan="6" class="empty">Loading courses...</td></tr>
             </tbody>
           </table>
         </div>
@@ -378,7 +437,10 @@
 
       try {
         const res = await fetch(`/faculty/${userId}`);
-        if (!res.ok) throw new Error('Failed to load faculty data');
+        if (!res.ok) {
+          const body = await res.json().catch(() => ({}));
+          throw new Error(body.message || 'Failed to load faculty data');
+        }
         const data = await res.json();
 
         const f = data.faculty;
@@ -420,7 +482,25 @@
                   <td><span class="badge">${t.section}</span></td>
                   <td>Semester ${t.semester}</td>
                   <td>${t.year}</td>
-                </tr>
+
+              
+
+                  <td>
+    <button
+        class="attendance-btn"
+        onclick="takeAttendance('${t.course_Id}','${t.course_name}')">
+        📅 Take Attendance
+    </button>
+
+
+
+    <button class="leave-btn" onclick="applyLeave()">
+    📝 Apply Leave
+</button>
+
+</td>
+
+                  </tr>
               `).join('')}
             </tbody>
           `;
@@ -428,7 +508,12 @@
       } catch (err) {
         console.error(err);
         document.getElementById('facultyInfo').innerHTML = '<div class="loading">Unable to load faculty profile.</div>';
-        alert('Error loading data');
+        alert(`Error loading data: ${err.message}`);
+        if (err.message.includes('Please log in') || err.message.includes('not found') || err.message.includes('Failed to load faculty data')) {
+          localStorage.removeItem('userId');
+          localStorage.removeItem('role');
+          window.location.href = 'login.html';
+        }
       }
     }
 
@@ -436,6 +521,21 @@
       localStorage.clear();
       window.location.href = 'login.html';
     }
+
+    function takeAttendance(courseId, courseName){
+
+    localStorage.setItem("courseId", courseId);
+    localStorage.setItem("courseName", courseName);
+
+    window.location.href="attendance.html";
+
+}
+
+
+
+function applyLeave(){
+    window.location.href="faculty-leave.html";
+}
 
     loadData();
   </script>
