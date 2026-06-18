@@ -472,7 +472,7 @@
             id="notif-message"
             placeholder="Write your message here..."
             required
-            style="min-height: 140px;"
+            style="min-height: 140px"
           ></textarea>
           <select id="notif-target">
             <option value="all">All users</option>
@@ -490,8 +490,7 @@
         <div>
           <h2>Academic Administration</h2>
           <p>
-            Maintain student records, faculty records, and course catalog
-            data.
+            Maintain student records, faculty records, and course catalog data.
           </p>
         </div>
         <div class="tabs">
@@ -535,88 +534,92 @@
 
     <script>
       document
-        .getElementById('notif-form')
-        .addEventListener('submit', async (e) => {
+        .getElementById("notif-form")
+        .addEventListener("submit", async (e) => {
           e.preventDefault();
           const body = {
-            title: document.getElementById('notif-title').value,
-            message: document.getElementById('notif-message').value,
-            target: document.getElementById('notif-target').value,
+            title: document.getElementById("notif-title").value,
+            message: document.getElementById("notif-message").value,
+            target: document.getElementById("notif-target").value,
           };
 
-          const res = await fetch('/api/notifications/send', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+          const res = await fetch("/api/notifications/send", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
             body: JSON.stringify(body),
           });
 
           if (res.ok) {
-            document.getElementById('notif-status').style.display = 'block';
+            document.getElementById("notif-status").style.display = "block";
             e.target.reset();
             setTimeout(
               () =>
-                (document.getElementById('notif-status').style.display =
-                  'none'),
+                (document.getElementById("notif-status").style.display =
+                  "none"),
               3000,
             );
           } else {
             const error = await res.json().catch(() => ({}));
-            showToast(error.error || 'Failed to send notification');
+            showToast(error.error || "Failed to send notification");
           }
         });
 
       const sectionMeta = {
         students: {
-          title: 'Students',
-          description: 'View and manage registered students.',
-          placeholder: 'Student ID',
+          title: "Students",
+          description: "View and manage registered students.",
+          placeholder: "Student ID",
         },
         faculty: {
-          title: 'Faculty',
-          description: 'View and manage faculty records.',
-          placeholder: 'Faculty ID',
+          title: "Faculty",
+          description: "View and manage faculty records.",
+          placeholder: "Faculty ID",
         },
         courses: {
-          title: 'Courses',
-          description: 'View and manage the course catalog.',
-          placeholder: 'Course ID',
+          title: "Courses",
+          description: "View and manage the course catalog.",
+          placeholder: "Course ID",
         },
         leave: {
-          title: 'Leave Requests',
-          description: 'Review and approve faculty leave requests.',
-          placeholder: '',
+          title: "Leave Requests",
+          description: "Review and approve faculty leave requests.",
+          placeholder: "",
         },
       };
 
-      let activeTab = 'students';
+      let activeTab = "students";
 
       function logout() {
         localStorage.clear();
-        location.href = 'login.html';
+        location.href = "login.html";
       }
 
       function showToast(message) {
-        const toast = document.getElementById('toast');
+        const toast = document.getElementById("toast");
         toast.textContent = message;
-        toast.classList.add('show');
-        setTimeout(() => toast.classList.remove('show'), 2200);
+        toast.classList.add("show");
+        setTimeout(() => toast.classList.remove("show"), 2200);
       }
 
       function showTab(tab) {
         activeTab = tab;
-        document.querySelectorAll('.tab').forEach((t) => t.classList.remove('active'));
         document
-          .getElementById('tab' + tab.charAt(0).toUpperCase() + tab.slice(1))
-          .classList.add('active');
-        document.getElementById('sectionTitle').textContent = sectionMeta[tab].title;
-        document.getElementById('sectionDescription').textContent = sectionMeta[tab].description;
+          .querySelectorAll(".tab")
+          .forEach((t) => t.classList.remove("active"));
+        document
+          .getElementById("tab" + tab.charAt(0).toUpperCase() + tab.slice(1))
+          .classList.add("active");
+        document.getElementById("sectionTitle").textContent =
+          sectionMeta[tab].title;
+        document.getElementById("sectionDescription").textContent =
+          sectionMeta[tab].description;
         loadCurrentTab();
       }
 
       function renderForm(fields, buttonLabel) {
-        const form = document.getElementById('formContainer');
+        const form = document.getElementById("formContainer");
         if (!fields.length) {
-          form.innerHTML = '';
+          form.innerHTML = "";
           return;
         }
 
@@ -626,11 +629,11 @@
               (field) => `
         <div class="field">
           <label for="${field.id}">${field.label}</label>
-          <input id="${field.id}" type="${field.type || 'text'}" placeholder="${field.placeholder}" />
+          <input id="${field.id}" type="${field.type || "text"}" placeholder="${field.placeholder}" />
         </div>
       `,
             )
-            .join('') +
+            .join("") +
           `
         <div class="actions">
           <button class="add" onclick="addRecord()">${buttonLabel}</button>
@@ -639,8 +642,8 @@
       }
 
       function renderTable(headers, rows, deleteId, deleteFn) {
-        const table = document.getElementById('dataTable');
-        document.getElementById('recordCount').textContent = rows.length;
+        const table = document.getElementById("dataTable");
+        document.getElementById("recordCount").textContent = rows.length;
 
         if (rows.length === 0) {
           table.innerHTML = `<tr><td colspan="${headers.length + 1}" class="empty">No records available.</td></tr>`;
@@ -649,289 +652,382 @@
 
         table.innerHTML = `
         <thead>
-          <tr>${headers.map((h) => `<th>${h}</th>`).join('')}<th>Action</th></tr>
+          <tr>${headers.map((h) => `<th>${h}</th>`).join("")}<th>Action</th></tr>
         </thead>
         <tbody>
           ${rows
             .map(
               (row) => `
             <tr>
-              ${row.cells.map((cell) => `<td>${cell}</td>`).join('')}
+              ${row.cells.map((cell) => `<td>${cell}</td>`).join("")}
               <td><button class="delete" onclick="${deleteFn}('${deleteId(row)}')">Delete</button></td>
             </tr>
           `,
             )
-            .join('')}
+            .join("")}
         </tbody>`;
       }
 
       async function loadCurrentTab() {
-        if (activeTab === 'students') loadStudents();
-        if (activeTab === 'faculty') loadFaculty();
-        if (activeTab === 'courses') loadCourses();
-        if (activeTab === 'leave') loadLeaves();
+        if (activeTab === "students") loadStudents();
+        if (activeTab === "faculty") loadFaculty();
+        if (activeTab === "courses") loadCourses();
+        if (activeTab === "leave") loadLeaves();
       }
 
       async function loadStudents() {
         renderForm(
           [
-            { id: 'student_Id', label: 'Student ID', placeholder: 'S001' },
-            { id: 'first_name', label: 'First Name', placeholder: 'First name' },
-            { id: 'last_name', label: 'Last Name', placeholder: 'Last name' },
-            { id: 'email', label: 'Email', type: 'email', placeholder: 'student@institute.edu' },
-            { id: 'phone', label: 'Phone', placeholder: 'Mobile number' },
-            { id: 'DOB', label: 'Date of Birth', type: 'date', placeholder: '' },
-            { id: 'dept_Id', label: 'Department ID', placeholder: '1' },
+            { id: "student_Id", label: "Student ID", placeholder: "S001" },
+            {
+              id: "first_name",
+              label: "First Name",
+              placeholder: "First name",
+            },
+            { id: "last_name", label: "Last Name", placeholder: "Last name" },
+            {
+              id: "email",
+              label: "Email",
+              type: "email",
+              placeholder: "student@institute.edu",
+            },
+            { id: "phone", label: "Phone", placeholder: "Mobile number" },
+            {
+              id: "DOB",
+              label: "Date of Birth",
+              type: "date",
+              placeholder: "",
+            },
+            { id: "dept_Id", label: "Department ID", placeholder: "1" },
           ],
-          'Add Student',
+          "Add Student",
         );
 
-        const table = document.getElementById('dataTable');
+        const table = document.getElementById("dataTable");
         table.innerHTML = '<tr><td class="empty">Loading students...</td></tr>';
 
         try {
-          const res = await fetch('/admin/students');
+          const res = await fetch("/admin/students");
           const data = await res.json();
           renderTable(
-            ['Student ID', 'Name', 'Email', 'Phone', 'DOB', 'Department', 'User ID'],
+            [
+              "Student ID",
+              "Name",
+              "Email",
+              "Phone",
+              "DOB",
+              "Department",
+              "User ID",
+            ],
             data.map((s) => ({
-              cells: [s.student_Id, `${s.first_name} ${s.last_name}`, s.email, s.phone, s.DOB || '-', s.dept_Id, s.user_Id],
+              cells: [
+                s.student_Id,
+                `${s.first_name} ${s.last_name}`,
+                s.email,
+                s.phone,
+                s.DOB || "-",
+                s.dept_Id,
+                s.user_Id,
+              ],
             })),
             (row) => row.cells[0],
-            'deleteStudent',
+            "deleteStudent",
           );
         } catch (e) {
           console.error(e);
-          table.innerHTML = '<tr><td class="empty">Unable to load students.</td></tr>';
+          table.innerHTML =
+            '<tr><td class="empty">Unable to load students.</td></tr>';
         }
       }
 
       async function loadFaculty() {
         renderForm(
           [
-            { id: 'faculty_first', label: 'First Name', placeholder: 'First name' },
-            { id: 'faculty_last', label: 'Last Name', placeholder: 'Last name' },
-            { id: 'faculty_email', label: 'Email', type: 'email', placeholder: 'faculty@institute.edu' },
-            { id: 'faculty_phone', label: 'Phone', placeholder: 'Mobile number' },
-            { id: 'designation', label: 'Designation', placeholder: 'Professor' },
-            { id: 'dept_Id_faculty', label: 'Department ID', placeholder: '1' },
+            {
+              id: "faculty_first",
+              label: "First Name",
+              placeholder: "First name",
+            },
+            {
+              id: "faculty_last",
+              label: "Last Name",
+              placeholder: "Last name",
+            },
+            {
+              id: "faculty_email",
+              label: "Email",
+              type: "email",
+              placeholder: "faculty@institute.edu",
+            },
+            {
+              id: "faculty_phone",
+              label: "Phone",
+              placeholder: "Mobile number",
+            },
+            {
+              id: "designation",
+              label: "Designation",
+              placeholder: "Professor",
+            },
+            { id: "dept_Id_faculty", label: "Department ID", placeholder: "1" },
           ],
-          'Add Faculty',
+          "Add Faculty",
         );
 
-        const table = document.getElementById('dataTable');
+        const table = document.getElementById("dataTable");
         table.innerHTML = '<tr><td class="empty">Loading faculty...</td></tr>';
 
         try {
-          const res = await fetch('/admin/faculty');
+          const res = await fetch("/admin/faculty");
           const data = await res.json();
           renderTable(
-            ['Faculty ID', 'Name', 'Email', 'Phone', 'Designation', 'Department', 'User ID'],
+            [
+              "Faculty ID",
+              "Name",
+              "Email",
+              "Phone",
+              "Designation",
+              "Department",
+              "User ID",
+            ],
             data.map((f) => ({
-              cells: [f.faculty_Id, `${f.first_name} ${f.last_name}`, f.email, f.phone, f.designation, f.dept_Id, f.user_Id],
+              cells: [
+                f.faculty_Id,
+                `${f.first_name} ${f.last_name}`,
+                f.email,
+                f.phone,
+                f.designation,
+                f.dept_Id,
+                f.user_Id,
+              ],
             })),
             (row) => row.cells[0],
-            'deleteFaculty',
+            "deleteFaculty",
           );
         } catch (e) {
           console.error(e);
-          table.innerHTML = '<tr><td class="empty">Unable to load faculty.</td></tr>';
+          table.innerHTML =
+            '<tr><td class="empty">Unable to load faculty.</td></tr>';
         }
       }
 
       async function loadCourses() {
         renderForm(
           [
-            { id: 'course_Id', label: 'Course ID', placeholder: 'CS101' },
-            { id: 'course_name', label: 'Course Name', placeholder: 'Data Structures' },
-            { id: 'credits', label: 'Credits', type: 'number', placeholder: '4' },
-            { id: 'dept_Id_course', label: 'Department ID', placeholder: '1' },
+            { id: "course_Id", label: "Course ID", placeholder: "CS101" },
+            {
+              id: "course_name",
+              label: "Course Name",
+              placeholder: "Data Structures",
+            },
+            {
+              id: "credits",
+              label: "Credits",
+              type: "number",
+              placeholder: "4",
+            },
+            { id: "dept_Id_course", label: "Department ID", placeholder: "1" },
           ],
-          'Add Course',
+          "Add Course",
         );
 
-        const table = document.getElementById('dataTable');
+        const table = document.getElementById("dataTable");
         table.innerHTML = '<tr><td class="empty">Loading courses...</td></tr>';
 
         try {
-          const res = await fetch('/admin/courses');
+          const res = await fetch("/admin/courses");
           const data = await res.json();
           renderTable(
-            ['Course ID', 'Course Name', 'Credits', 'Department'],
+            ["Course ID", "Course Name", "Credits", "Department"],
             data.map((c) => ({
               cells: [c.course_Id, c.course_name, c.credits, c.dept_Id],
             })),
             (row) => row.cells[0],
-            'deleteCourse',
+            "deleteCourse",
           );
         } catch (e) {
           console.error(e);
-          table.innerHTML = '<tr><td class="empty">Unable to load courses.</td></tr>';
+          table.innerHTML =
+            '<tr><td class="empty">Unable to load courses.</td></tr>';
         }
       }
 
       async function loadLeaves() {
-        renderForm([], '');
-        const table = document.getElementById('dataTable');
-        table.innerHTML = '<tr><td class="empty">Loading leave requests...</td></tr>';
+        renderForm([], "");
+        const table = document.getElementById("dataTable");
+        table.innerHTML =
+          '<tr><td class="empty">Loading leave requests...</td></tr>';
 
         try {
-          const res = await fetch('/admin/faculty-leaves');
+          const res = await fetch("/admin/faculty-leaves");
           const data = await res.json();
           renderTable(
-            ['Leave ID', 'Faculty ID', 'Faculty Name', 'From', 'To', 'Status', 'Reason'],
+            [
+              "Leave ID",
+              "Faculty ID",
+              "Faculty Name",
+              "From",
+              "To",
+              "Status",
+              "Reason",
+            ],
             data.map((l) => ({
               cells: [
                 l.leave_Id,
                 l.faculty_Id,
                 `${l.first_name} ${l.last_name}`,
-                l.from_date || '-',
-                l.to_date || '-',
-                l.status || '-',
-                l.reason || '-',
+                l.from_date || "-",
+                l.to_date || "-",
+                l.status || "-",
+                l.reason || "-",
               ],
             })),
             (row) => row.cells[0],
-            'approveRejectLeave',
+            "approveRejectLeave",
           );
         } catch (e) {
           console.error(e);
-          table.innerHTML = '<tr><td class="empty">Unable to load leave requests.</td></tr>';
+          table.innerHTML =
+            '<tr><td class="empty">Unable to load leave requests.</td></tr>';
         }
       }
 
       async function addRecord() {
-        if (activeTab === 'students') return addStudent();
-        if (activeTab === 'faculty') return addFaculty();
-        if (activeTab === 'courses') return addCourse();
+        if (activeTab === "students") return addStudent();
+        if (activeTab === "faculty") return addFaculty();
+        if (activeTab === "courses") return addCourse();
       }
 
       async function addStudent() {
         const payload = {
-          student_Id: document.getElementById('student_Id').value,
-          first_name: document.getElementById('first_name').value,
-          last_name: document.getElementById('last_name').value,
-          email: document.getElementById('email').value,
-          phone: document.getElementById('phone').value,
-          DOB: document.getElementById('DOB').value,
-          dept_Id: document.getElementById('dept_Id').value,
+          student_Id: document.getElementById("student_Id").value,
+          first_name: document.getElementById("first_name").value,
+          last_name: document.getElementById("last_name").value,
+          email: document.getElementById("email").value,
+          phone: document.getElementById("phone").value,
+          DOB: document.getElementById("DOB").value,
+          dept_Id: document.getElementById("dept_Id").value,
         };
         try {
-          const res = await fetch('/admin/students', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+          const res = await fetch("/admin/students", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
             body: JSON.stringify(payload),
           });
           const data = await res.json();
-          showToast(data.message || data.error || 'Student action completed');
+          showToast(data.message || data.error || "Student action completed");
           loadStudents();
         } catch (e) {
           console.error(e);
-          showToast('Unable to add student');
+          showToast("Unable to add student");
         }
       }
 
       async function addFaculty() {
         const payload = {
-          first_name: document.getElementById('faculty_first').value,
-          last_name: document.getElementById('faculty_last').value,
-          email: document.getElementById('faculty_email').value,
-          phone: document.getElementById('faculty_phone').value,
-          designation: document.getElementById('designation').value,
-          dept_Id: document.getElementById('dept_Id_faculty').value,
+          first_name: document.getElementById("faculty_first").value,
+          last_name: document.getElementById("faculty_last").value,
+          email: document.getElementById("faculty_email").value,
+          phone: document.getElementById("faculty_phone").value,
+          designation: document.getElementById("designation").value,
+          dept_Id: document.getElementById("dept_Id_faculty").value,
         };
         try {
-          const res = await fetch('/admin/faculty', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+          const res = await fetch("/admin/faculty", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
             body: JSON.stringify(payload),
           });
           const data = await res.json();
-          showToast(data.message || data.error || 'Faculty action completed');
+          showToast(data.message || data.error || "Faculty action completed");
           loadFaculty();
         } catch (e) {
           console.error(e);
-          showToast('Unable to add faculty');
+          showToast("Unable to add faculty");
         }
       }
 
       async function addCourse() {
         const payload = {
-          course_Id: document.getElementById('course_Id').value,
-          course_name: document.getElementById('course_name').value,
-          credits: document.getElementById('credits').value,
-          dept_Id: document.getElementById('dept_Id_course').value,
+          course_Id: document.getElementById("course_Id").value,
+          course_name: document.getElementById("course_name").value,
+          credits: document.getElementById("credits").value,
+          dept_Id: document.getElementById("dept_Id_course").value,
         };
         try {
-          const res = await fetch('/admin/courses', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+          const res = await fetch("/admin/courses", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
             body: JSON.stringify(payload),
           });
           const data = await res.json();
-          showToast(data.message || data.error || 'Course action completed');
+          showToast(data.message || data.error || "Course action completed");
           loadCourses();
         } catch (e) {
           console.error(e);
-          showToast('Unable to add course');
+          showToast("Unable to add course");
         }
       }
 
       async function deleteStudent(id) {
-        if (!confirm('Delete student?')) return;
+        if (!confirm("Delete student?")) return;
         try {
-          const res = await fetch('/admin/students/' + id, { method: 'DELETE' });
+          const res = await fetch("/admin/students/" + id, {
+            method: "DELETE",
+          });
           const data = await res.json();
-          showToast(data.message || 'Student deleted');
+          showToast(data.message || "Student deleted");
           loadStudents();
         } catch (e) {
           console.error(e);
-          showToast('Unable to delete student');
+          showToast("Unable to delete student");
         }
       }
 
       async function deleteFaculty(id) {
-        if (!confirm('Delete faculty member?')) return;
+        if (!confirm("Delete faculty member?")) return;
         try {
-          const res = await fetch('/admin/faculty/' + id, { method: 'DELETE' });
+          const res = await fetch("/admin/faculty/" + id, { method: "DELETE" });
           const data = await res.json();
-          showToast(data.message || 'Faculty deleted');
+          showToast(data.message || "Faculty deleted");
           loadFaculty();
         } catch (e) {
           console.error(e);
-          showToast('Unable to delete faculty');
+          showToast("Unable to delete faculty");
         }
       }
 
       async function deleteCourse(id) {
-        if (!confirm('Delete course?')) return;
+        if (!confirm("Delete course?")) return;
         try {
-          const res = await fetch('/admin/courses/' + id, { method: 'DELETE' });
+          const res = await fetch("/admin/courses/" + id, { method: "DELETE" });
           const data = await res.json();
-          showToast(data.message || 'Course deleted');
+          showToast(data.message || "Course deleted");
           loadCourses();
         } catch (e) {
           console.error(e);
-          showToast('Unable to delete course');
+          showToast("Unable to delete course");
         }
       }
 
       async function approveRejectLeave(id) {
-        const approve = confirm('Press OK to Approve. Press Cancel to Reject.');
-        const url = approve ? '/admin/faculty-leaves/' + id + '/approve' : '/admin/faculty-leaves/' + id + '/reject';
+        const approve = confirm("Press OK to Approve. Press Cancel to Reject.");
+        const url = approve
+          ? "/admin/faculty-leaves/" + id + "/approve"
+          : "/admin/faculty-leaves/" + id + "/reject";
         try {
-          const res = await fetch(url, { method: 'PUT' });
+          const res = await fetch(url, { method: "PUT" });
           const data = await res.json();
-          if (!res.ok) throw new Error(data.message || 'Update failed');
-          showToast(approve ? 'Leave approved' : 'Leave rejected');
+          if (!res.ok) throw new Error(data.message || "Update failed");
+          showToast(approve ? "Leave approved" : "Leave rejected");
           loadLeaves();
         } catch (e) {
           console.error(e);
-          showToast(e.message || 'Unable to update leave request');
+          showToast(e.message || "Unable to update leave request");
         }
       }
 
-      window.addEventListener('load', () => showTab('students'));
+      window.addEventListener("load", () => showTab("students"));
     </script>
   </body>
 </html>

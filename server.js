@@ -1,11 +1,11 @@
 const express = require("express");
 const http = require("http");
 const { Server } = require("socket.io");
-const bodyParser = require("body-parser");
 const cors = require("cors");
-const mysql = require("mysql2");
+const mysql = require("mysql2/promise");
 const bcrypt = require("bcrypt");
 const notificationsRoutes = require("./routes/notifications");
+const session = require("express-session");
 
 const app = express();
 const server = http.createServer(app);
@@ -13,21 +13,30 @@ const io = new Server(server);
 const saltRounds = 10;
 
 app.use(cors());
-app.use(bodyParser.json());
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 app.use(express.static("public"));
 
+app.use(
+  session({
+    secret: "InstitutePortal",
+    resave: false,
+    saveUninitialized: false,
+    cookie: { secure: false, maxAge: 60 * 60 * 1000 },
+  }),
+); // session configuration
+
 // ---------------- DATABASE CONNECTION ----------------
-const db = mysql.createConnection({
+const db = mysql.createPool({
   host: "localhost",
   user: "root",
-  password: "niku@enduku",
+  password: "Gabbhii@18",
   database: "institute",
 });
 
-db.connect((err) => {
-  if (err) console.error("Database connection failed:", err);
-  else console.log("Connected to MySQL Database");
-});
+db.getConnection()
+  .then(() => console.log("Connected to MySQL Database"))
+  .catch(err => console.error("Database connection failed:", err));
 
 db.query(`
   CREATE TABLE IF NOT EXISTS notifications (
@@ -46,126 +55,191 @@ app.use(["/notifications", "/api/notifications"], notificationsRoutes);
 
 io.on("connection", (socket) => {
   console.log("A user connected:", socket.id);
+  socket.on("join_room", (role) => {
+    const allowed = ["student", "faculty", "admin"];
+    if (allowed.includes(role)) {
+      socket.join(role);
+      socket.join("all");
+      console.log(`Socket ${socket.id} joined room: ${role} + all`);
+    }
+  });
   socket.on("disconnect", () => {
     console.log("User disconnected:", socket.id);
   });
 });
 
 // ---------------- LOGIN ----------------
-app.post("/login", (req, res) => {
+app.post("/login", async (req, res) => {
   const { username, password } = req.body;
-  db.query(
-    "SELECT * FROM Users WHERE username=?",
-    [username],
-    async (err, results) => {
-      if (err) {
-        console.error("Login query failed:", err.sqlMessage || err.message);
-        return res.status(500).json({ message: "Database error", error: err.message });
-      }
-      if (results.length === 0) {
-        return res.status(401).json({
-          message: "Invalid username",
-          error: `No user found for username: ${username}`,
-        });
-      }
 
-      const match = await bcrypt.compare(password, results[0].password);
-      if (!match) {
-        return res.status(401).json({
-          message: "Invalid password",
-          error: `Password does not match for username: ${username}`,
-        });
-      }
+  try {
+    const [results] = await db.query(
+      "SELECT * FROM Users WHERE username=?",
+      [username]
+    );
 
-      res.json({ user: results[0] });
+    if (results.length === 0) {
+      return res.status(401).json({
+        message: "Invalid username",
+        error: `No user found for username: ${username}`,
+      });
     }
-  );
+
+    const match = await bcrypt.compare(
+      password,
+      results[0].password
+    );
+
+    if (!match) {
+      return res.status(401).json({
+        message: "Invalid password",
+        error: `Password does not match for username: ${username}`,
+      });
+    }
+
+    req.session.user = {
+      id: results[0].user_Id,
+      name: results[0].username,
+      role: results[0].role,
+    };
+
+    res.json({ user: results[0] });
+
+  } catch (err) {
+    console.error("Login failed:", err);
+    res.status(500).json({
+      message: "Database error",
+      error: err.message,
+    });
+  }
 });
 
 app.post("/signup", async (req, res) => {
   const { username, password, role } = req.body;
 
   if (!username || !password || !role) {
-    return res.status(400).json({ success: false, message: "Please provide username, password, and role." });
+    return res.status(400).json({
+      success: false,
+      message: "Please provide username, password, and role.",
+    });
   }
 
   if (!["student", "faculty"].includes(role)) {
-    return res.status(400).json({ success: false, message: "Role must be either student or faculty." });
+    return res.status(400).json({
+      success: false,
+      message: "Role must be either student or faculty.",
+    });
   }
 
   try {
     const hashedPassword = await bcrypt.hash(password, saltRounds);
-    db.query(
+
+    await db.query(
       "INSERT INTO Users (username, password, role) VALUES (?, ?, ?)",
-      [username, hashedPassword, role],
-      (err) => {
-        if (err) {
-          console.error("Signup failed:", err.sqlMessage || err.message);
-          if (err.code === "ER_DUP_ENTRY" || err.errno === 1062) {
-            return res.status(409).json({ success: false, message: "Username already exists." });
-          }
-          return res.status(500).json({ success: false, message: "Database error creating account." });
-        }
-        res.json({ success: true, message: "Account created successfully." });
-      }
+      [username, hashedPassword, role]
     );
-  } catch (hashError) {
-    console.error("Password hashing failed:", hashError.message);
-    res.status(500).json({ success: false, message: "Unable to create account." });
+
+    res.json({
+      success: true,
+      message: "Account created successfully.",
+    });
+
+  } catch (err) {
+    console.error("Signup failed:", err);
+
+    if (err.code === "ER_DUP_ENTRY") {
+      return res.status(409).json({
+        success: false,
+        message: "Username already exists.",
+      });
+    }
+
+    res.status(500).json({
+      success: false,
+      message: "Database error creating account.",
+    });
   }
 });
 
+
 // ---------------- STUDENT DASHBOARD ----------------
-app.get("/student/:userId", (req, res) => {
+app.get("/student/:userId", async (req, res) => {
   const userId = req.params.userId;
-  const studentQuery = `
-    SELECT s.student_Id, s.first_name, s.last_name, s.email, s.phone, s.DOB, d.dept_name
-    FROM Students s
-    JOIN Department d ON s.dept_Id = d.dept_Id
-    WHERE s.user_Id = ?;
-  `;
-  db.query(studentQuery, [userId], (err, studentResults) => {
-    if (err) return res.status(500).json({ error: err.message });
-    if (studentResults.length === 0)
-      return res.status(404).json({ message: "Student not found" });
+
+  try {
+    const studentQuery = `
+      SELECT s.student_Id, s.first_name, s.last_name,
+             s.email, s.phone, s.DOB, d.dept_name
+      FROM Students s
+      JOIN Department d ON s.dept_Id = d.dept_Id
+      WHERE s.user_Id = ?;
+    `;
+
+    const [studentResults] = await db.query(studentQuery, [userId]);
+
+    if (studentResults.length === 0) {
+      return res.status(404).json({
+        message: "Student not found",
+      });
+    }
 
     const student = studentResults[0];
 
     const coursesQuery = `
-      SELECT c.course_Id, c.course_name, CONCAT(f.first_name, ' ', f.last_name) AS faculty_name
+      SELECT c.course_Id,
+             c.course_name,
+             CONCAT(f.first_name,' ',f.last_name) AS faculty_name
       FROM Enrollments e
       JOIN Courses c ON e.course_Id = c.course_Id
       JOIN Teaches t ON c.course_Id = t.course_Id
       JOIN Faculty f ON t.faculty_Id = f.faculty_Id
       WHERE e.student_Id = ?;
     `;
-    db.query(coursesQuery, [student.student_Id], (err, courses) => {
-      if (err) return res.status(500).json({ error: err.message });
 
-      const attendanceQuery = `
-        SELECT Attd_Date, course_Id,
-               CASE WHEN Status='P' THEN 'Present' ELSE 'Absent' END AS Status
-        FROM Attendance
-        WHERE student_Id = ?;
-      `;
-      db.query(attendanceQuery, [student.student_Id], (err, attendance) => {
-        if (err) return res.status(500).json({ error: err.message });
-        res.json({ student, courses, attendance });
-      });
+    const [courses] = await db.query(
+      coursesQuery,
+      [student.student_Id]
+    );
+
+    const attendanceQuery = `
+      SELECT Attd_Date,
+             course_Id,
+             CASE WHEN Status='P'
+                  THEN 'Present'
+                  ELSE 'Absent'
+             END AS Status
+      FROM Attendance
+      WHERE student_Id = ?;
+    `;
+
+    const [attendance] = await db.query(
+      attendanceQuery,
+      [student.student_Id]
+    );
+
+    res.json({
+      student,
+      courses,
+      attendance,
     });
-  });
-});
 
+  } catch (err) {
+    console.error("Student route error:", err);
+    res.status(500).json({
+      error: err.message,
+    });
+  }
+});
 // ---------------- FACULTY DASHBOARD ----------------
 app.get("/faculty/:userId", async (req, res) => {
   const { userId } = req.params;
   try {
-    const [faculty] = await db.promise().query(
+    const [faculty] = await db.query(
       `SELECT f.faculty_Id, f.first_name, f.last_name, f.email, f.phone, f.designation, f.join_date, d.dept_name
        FROM Faculty f
        JOIN Department d ON f.dept_Id = d.dept_Id
        WHERE f.user_Id = ?`,
-      [userId]
+      [userId],
     );
 
     if (faculty.length === 0)
@@ -173,12 +247,12 @@ app.get("/faculty/:userId", async (req, res) => {
 
     const facultyId = faculty[0].faculty_Id;
 
-    const [teaches] = await db.promise().query(
+    const [teaches] = await db.query(
       `SELECT t.course_Id, c.course_name, t.section, t.semester, t.year
        FROM Teaches t
        JOIN Courses c ON t.course_Id = c.course_Id
        WHERE t.faculty_Id = ?`,
-      [facultyId]
+      [facultyId],
     );
 
     res.json({ faculty: faculty[0], teaches });
@@ -188,364 +262,546 @@ app.get("/faculty/:userId", async (req, res) => {
   }
 });
 
-// ======================================================
-// 🔹 ADMIN DASHBOARD ROUTES (Students / Faculty / Courses)
-// ======================================================
-
+// ADMIN DASHBOARD ROUTES (Students / Faculty / Courses)
 // ------------- STUDENTS -------------
-app.get("/admin/students", (req, res) => {
-  db.query("SELECT * FROM Students", (err, result) => {
-    if (err) return res.status(500).json({ error: err.message });
+app.get("/admin/students", async (req, res) => {
+  try {
+    const [result] = await db.query(
+      "SELECT * FROM Students"
+    );
+
     res.json(result);
-  });
+
+  } catch (err) {
+    res.status(500).json({
+      error: err.message,
+    });
+  }
 });
 
 app.post("/admin/students", async (req, res) => {
-  const {
-    student_Id,
-    first_name,
-    last_name,
-    email,
-    phone,
-    DOB,
-    dept_Id
-  } = req.body;
+  try {
+    const {
+      student_Id,
+      first_name,
+      last_name,
+      email,
+      phone,
+      DOB,
+      dept_Id,
+    } = req.body;
 
-  // auto-generate login credentials
-  const username = (first_name.concat(last_name)).toLowerCase(); 
-  const password = (first_name.concat(last_name)).toLowerCase() + "123"; 
-  const hashedPassword = await bcrypt.hash(password, saltRounds);
+    const username =
+      first_name.concat(last_name).toLowerCase();
 
-  const userQuery = "INSERT INTO Users (username, password, role) VALUES (?, ?, 'student')";
+    const password =
+      username + "123";
 
-  db.query(userQuery, [username, hashedPassword], (userErr, userResult) => {
-    if (userErr) {
-      console.error("User creation failed:", userErr.sqlMessage);
-      return res.status(500).json({ error: "User creation failed: " + userErr.sqlMessage });
-    }
+    const hashedPassword =
+      await bcrypt.hash(password, saltRounds);
+
+    const [userResult] = await db.query(
+      "INSERT INTO Users (username, password, role) VALUES (?, ?, 'student')",
+      [username, hashedPassword]
+    );
 
     const newUserId = userResult.insertId;
 
-    const studentQuery = `
-      INSERT INTO Students (student_Id, first_name, last_name, email, phone, DOB, admission_date, dept_Id, user_Id)
-      VALUES (?, ?, ?, ?, ?, ?, CURDATE(), ?, ?)
-    `;
+    try {
+      await db.query(
+        `INSERT INTO Students
+        (student_Id, first_name, last_name, email, phone, DOB,
+         admission_date, dept_Id, user_Id)
+         VALUES (?, ?, ?, ?, ?, ?, CURDATE(), ?, ?)`,
+        [
+          student_Id,
+          first_name,
+          last_name,
+          email,
+          phone,
+          DOB,
+          dept_Id,
+          newUserId,
+        ]
+      );
 
-    db.query(
-      studentQuery,
-      [student_Id, first_name, last_name, email, phone, DOB, dept_Id, newUserId],
-      (studentErr) => {
-        if (studentErr) {
-          console.error("Student insert failed:", studentErr.sqlMessage);
-          db.query("DELETE FROM Users WHERE user_Id = ?", [newUserId]);
-          return res.status(500).json({ error: "Student insert failed: " + studentErr.sqlMessage });
-        }
+      res.json({
+        message:
+          "Student and User created successfully!",
+        login: { username, password },
+      });
 
-        res.json({
-          message: "Student and User created successfully!",
-          login: { username, password }
-        });
-      }
-    );
-  });
-});
+    } catch (studentErr) {
 
-app.delete("/admin/students/:id", (req, res) => {
-  const { id } = req.params;
+      await db.query(
+        "DELETE FROM Users WHERE user_Id=?",
+        [newUserId]
+      );
 
-  // Step 1: Get the user_Id linked to the student
-  const findUser = "SELECT user_Id FROM Students WHERE student_Id = ?";
-  db.query(findUser, [id], (findErr, result) => {
-    if (findErr) {
-      console.error("Find Error:", findErr.sqlMessage);
-      return res.status(500).json({ error: findErr.sqlMessage });
+      throw studentErr;
     }
 
+  } catch (err) {
+    console.error(err);
+
+    res.status(500).json({
+      error: err.message,
+    });
+  }
+});
+
+app.delete("/admin/students/:id", async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const [result] = await db.query(
+      "SELECT user_Id FROM Students WHERE student_Id=?",
+      [id]
+    );
+
     if (result.length === 0) {
-      return res.status(404).json({ error: "Student not found" });
+      return res.status(404).json({
+        error: "Student not found",
+      });
     }
 
     const userId = result[0].user_Id;
 
-    // Step 2: Delete the student first
-    const deleteStudent = "DELETE FROM Students WHERE student_Id = ?";
-    db.query(deleteStudent, [id], (delErr) => {
-      if (delErr) {
-        console.error("Student Delete Error:", delErr.sqlMessage);
-        return res.status(500).json({ error: delErr.sqlMessage });
-      }
+    await db.query(
+      "DELETE FROM Students WHERE student_Id=?",
+      [id]
+    );
 
-      // Step 3: Delete the linked user
-      const deleteUser = "DELETE FROM Users WHERE user_Id = ?";
-      db.query(deleteUser, [userId], (userErr) => {
-        if (userErr) {
-          console.error("User Delete Error:", userErr.sqlMessage);
-          return res.status(500).json({ error: userErr.sqlMessage });
-        }
+    await db.query(
+      "DELETE FROM Users WHERE user_Id=?",
+      [userId]
+    );
 
-        res.json({
-          message: "Student and linked User deleted successfully!"
-        });
-      });
+    res.json({
+      message:
+        "Student and linked User deleted successfully!",
     });
-  });
+
+  } catch (err) {
+    res.status(500).json({
+      error: err.message,
+    });
+  }
 });
 
-// =====================================================
-// FACULTY CRUD — auto user linking
-// =====================================================
 
-app.get("/admin/faculty", (req, res) => {
-  db.query("SELECT * FROM Faculty", (err, result) => {
-    if (err) return res.status(500).json({ error: err.message });
+// FACULTY CRUD — auto user linking
+
+app.get("/admin/faculty", async (req, res) => {
+  try {
+    const [result] =
+      await db.query("SELECT * FROM Faculty");
+
     res.json(result);
-  });
+
+  } catch (err) {
+    res.status(500).json({
+      error: err.message,
+    });
+  }
 });
 
 // ---------------- ADD FACULTY ----------------
 app.post("/admin/faculty", async (req, res) => {
-  const { first_name, last_name, email, phone, designation, dept_Id } = req.body;
+  try {
+    const {
+      first_name,
+      last_name,
+      email,
+      phone,
+      designation,
+      dept_Id,
+    } = req.body;
 
-  // Step 1: Auto-generate username and password
-  const username = (first_name + last_name).toLowerCase();
-  const password = (first_name + last_name).toLowerCase() + "123";
-  const hashedPassword = await bcrypt.hash(password, saltRounds); 
-  
-  // Step 2: Create new user in Users table
-  const userQuery = "INSERT INTO Users (username, password, role) VALUES (?, ?, 'faculty')";
-  db.query(userQuery, [username, hashedPassword], (userErr, userResult) => {
-    if (userErr) {
-      console.error("User creation failed:", userErr.sqlMessage);
-      return res.status(500).json({ error: "User creation failed: " + userErr.sqlMessage });
-    }
+    const username =
+      (first_name + last_name).toLowerCase();
+
+    const password =
+      username + "123";
+
+    const hashedPassword =
+      await bcrypt.hash(password, saltRounds);
+
+    const [userResult] = await db.query(
+      "INSERT INTO Users (username, password, role) VALUES (?, ?, 'faculty')",
+      [username, hashedPassword]
+    );
 
     const newUserId = userResult.insertId;
 
-    // Step 3: Create Faculty record linked to that new user
-    const facultyQuery = `
-      INSERT INTO Faculty (first_name, last_name, email, phone, designation, join_date, dept_Id, user_Id)
-      VALUES (?, ?, ?, ?, ?, CURDATE(), ?, ?)
-    `;
+    try {
+      await db.query(
+        `INSERT INTO Faculty
+        (first_name, last_name, email, phone,
+         designation, join_date, dept_Id, user_Id)
+         VALUES (?, ?, ?, ?, ?, CURDATE(), ?, ?)`,
+        [
+          first_name,
+          last_name,
+          email,
+          phone,
+          designation,
+          dept_Id,
+          newUserId,
+        ]
+      );
 
-    db.query(
-      facultyQuery,
-      [first_name, last_name, email, phone, designation, dept_Id, newUserId],
-      (facultyErr) => {
-        if (facultyErr) {
-          console.error("Faculty insert failed:", facultyErr.sqlMessage);
-          // rollback: delete user if faculty insert fails
-          db.query("DELETE FROM Users WHERE user_Id = ?", [newUserId]);
-          return res.status(500).json({ error: "Faculty insert failed: " + facultyErr.sqlMessage });
-        }
+      res.json({
+        message:
+          "Faculty and User created successfully!",
+        login: { username, password },
+      });
 
-        res.json({
-          message: "Faculty and User created successfully!",
-          login: { username, password }
-        });
-      }
-    );
-  });
+    } catch (facultyErr) {
+
+      await db.query(
+        "DELETE FROM Users WHERE user_Id=?",
+        [newUserId]
+      );
+
+      throw facultyErr;
+    }
+
+  } catch (err) {
+    console.error(err);
+
+    res.status(500).json({
+      error: err.message,
+    });
+  }
 });
 
 // ---------------- DELETE FACULTY ----------------
-app.delete("/admin/faculty/:id", (req, res) => {
-  const { id } = req.params;
+app.delete("/admin/faculty/:id", async (req, res) => {
+  try {
+    const { id } = req.params;
 
-  // Step 1: Find linked user_Id
-  const findUser = "SELECT user_Id FROM Faculty WHERE faculty_Id = ?";
-  db.query(findUser, [id], (findErr, result) => {
-    if (findErr) {
-      console.error("Find Error:", findErr.sqlMessage);
-      return res.status(500).json({ error: findErr.sqlMessage });
-    }
+    const [result] = await db.query(
+      "SELECT user_Id FROM Faculty WHERE faculty_Id=?",
+      [id]
+    );
 
     if (result.length === 0) {
-      return res.status(404).json({ error: "Faculty not found" });
+      return res.status(404).json({
+        error: "Faculty not found",
+      });
     }
 
     const userId = result[0].user_Id;
 
-    // Step 2: Delete faculty entry
-    const deleteFaculty = "DELETE FROM Faculty WHERE faculty_Id = ?";
-    db.query(deleteFaculty, [id], (delErr) => {
-      if (delErr) {
-        console.error("Faculty Delete Error:", delErr.sqlMessage);
-        return res.status(500).json({ error: delErr.sqlMessage });
-      }
+    await db.query(
+      "DELETE FROM Faculty WHERE faculty_Id=?",
+      [id]
+    );
 
-      // Step 3: Delete linked user
-      const deleteUser = "DELETE FROM Users WHERE user_Id = ?";
-      db.query(deleteUser, [userId], (userErr) => {
-        if (userErr) {
-          console.error("User Delete Error:", userErr.sqlMessage);
-          return res.status(500).json({ error: userErr.sqlMessage });
-        }
+    await db.query(
+      "DELETE FROM Users WHERE user_Id=?",
+      [userId]
+    );
 
-        res.json({
-          message: "Faculty and linked User deleted successfully!"
-        });
-      });
+    res.json({
+      message:
+        "Faculty and linked User deleted successfully!",
     });
-  });
+
+  } catch (err) {
+    res.status(500).json({
+      error: err.message,
+    });
+  }
 });
 
 // ------------- COURSES -------------
-app.get("/admin/courses", (req, res) => {
-  db.query("SELECT * FROM Courses", (err, result) => {
-    if (err) return res.status(500).json({ error: err.message });
+app.get("/admin/courses", async (req, res) => {
+  try {
+    const [result] =
+      await db.query("SELECT * FROM Courses");
+
     res.json(result);
-  });
+
+  } catch (err) {
+    res.status(500).json({
+      error: err.message,
+    });
+  }
 });
 
-app.post("/admin/courses", (req, res) => {
-  const { course_Id, course_name, credits, dept_Id } = req.body;
-  const sql = "INSERT INTO Courses (course_Id, course_name, credits, dept_Id) VALUES (?, ?, ?, ?)";
-  db.query(sql, [course_Id, course_name, credits, dept_Id], (err) => {
-    if (err) {
-      console.error("SQL Error:", err.sqlMessage);
-      return res.status(500).json({ error: err.sqlMessage });
-    }
-    res.json({ message: "Course added successfully" });
-  });
+app.post("/admin/courses", async (req, res) => {
+  try {
+    const {
+      course_Id,
+      course_name,
+      credits,
+      dept_Id,
+    } = req.body;
+
+    await db.query(
+      `INSERT INTO Courses
+       (course_Id, course_name, credits, dept_Id)
+       VALUES (?, ?, ?, ?)`,
+      [
+        course_Id,
+        course_name,
+        credits,
+        dept_Id,
+      ]
+    );
+
+    res.json({
+      message: "Course added successfully",
+    });
+
+  } catch (err) {
+    console.error(err);
+
+    res.status(500).json({
+      error: err.message,
+    });
+  }
 });
 
-app.delete("/admin/courses/:id", (req, res) => {
-  const { id } = req.params;
-  db.query("DELETE FROM Courses WHERE course_Id = ?", [id], (err) => {
-    if (err) {
-      console.error("SQL Error:", err.sqlMessage);
-      return res.status(500).json({ error: err.sqlMessage });
-    }
-    res.json({ message: "Course deleted successfully" });
-  });
+app.delete("/admin/courses/:id", async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    await db.query(
+      "DELETE FROM Courses WHERE course_Id=?",
+      [id]
+    );
+
+    res.json({
+      message: "Course deleted successfully",
+    });
+
+  } catch (err) {
+    res.status(500).json({
+      error: err.message,
+    });
+  }
 });
 
-// =====================================================
 // FACULTY - GET STUDENTS OF A COURSE
-// =====================================================
-app.get("/faculty/course/:courseId/students", (req, res) => {
-  const courseId = req.params.courseId;
-  const sql = `
-    SELECT s.student_Id, s.first_name, s.last_name
-    FROM Enrollments e
-    JOIN Students s ON e.student_Id = s.student_Id
-    WHERE e.course_Id = ?
-  `;
+app.get("/faculty/course/:courseId/students", async (req, res) => {
+  try {
+    const { courseId } = req.params;
 
-  db.query(sql, [courseId], (err, result) => {
-    if (err) return res.status(500).json(err);
+    const [result] = await db.query(
+      `SELECT s.student_Id,
+              s.first_name,
+              s.last_name
+       FROM Enrollments e
+       JOIN Students s
+       ON e.student_Id = s.student_Id
+       WHERE e.course_Id=?`,
+      [courseId]
+    );
+
     res.json(result);
-  });
+
+  } catch (err) {
+    res.status(500).json(err);
+  }
 });
 
-// =====================================================
 // FACULTY - SAVE ATTENDANCE
-// =====================================================
-app.post("/faculty/attendance", (req, res) => {
-  const { courseId, date, attendance } = req.body;
+app.post("/faculty/attendance", async (req, res) => {
+  try {
+    const { courseId, date, attendance } =
+      req.body;
 
-  db.query(
-    "SELECT * FROM Attendance WHERE course_Id=? AND Attd_Date=?",
-    [courseId, date],
-    (err, result) => {
-      if (err) return res.status(500).json(err);
+    const [existing] = await db.query(
+      `SELECT *
+       FROM Attendance
+       WHERE course_Id=?
+       AND Attd_Date=?`,
+      [courseId, date]
+    );
 
-      if (result.length > 0) {
-        return res.json({ message: "Attendance already marked for this date." });
-      }
-
-      const sql = "INSERT INTO Attendance (student_Id, course_Id, Attd_Date, Status) VALUES (?, ?, ?, ?)";
-
-      attendance.forEach(student => {
-        db.query(sql, [student.studentId, courseId, date, student.status]);
+    if (existing.length > 0) {
+      return res.json({
+        message:
+          "Attendance already marked for this date.",
       });
-
-      res.json({ message: "Attendance Saved Successfully" });
     }
-  );
+
+    const sql =
+      `INSERT INTO Attendance
+       (student_Id, course_Id,
+        Attd_Date, Status)
+       VALUES (?, ?, ?, ?)`;
+
+    for (const student of attendance) {
+      await db.query(sql, [
+        student.studentId,
+        courseId,
+        date,
+        student.status,
+      ]);
+    }
+
+    res.json({
+      message:
+        "Attendance Saved Successfully",
+    });
+
+  } catch (err) {
+    console.error(err);
+
+    res.status(500).json(err);
+  }
 });
 
 // =====================================================
 // FACULTY - APPLY LEAVE
 // =====================================================
-app.post("/faculty/apply-leave", (req, res) => {
-  const { facultyId, fromDate, toDate, reason } = req.body;
+app.post("/faculty/apply-leave", async (req, res) => {
+  try {
+    const {
+      facultyId,
+      fromDate,
+      toDate,
+      reason,
+    } = req.body;
 
-  if (!facultyId || !fromDate || !toDate || !reason) {
-    return res.status(400).json({ message: "Missing leave application fields." });
-  }
-
-  const lookupSql = "SELECT faculty_Id FROM Faculty WHERE user_Id = ? OR faculty_Id = ? LIMIT 1";
-  db.query(lookupSql, [facultyId, facultyId], (lookupErr, lookupResult) => {
-    if (lookupErr) {
-      console.error("Faculty lookup failed:", lookupErr);
-      return res.status(500).json({ message: "Unable to verify faculty identity." });
+    if (
+      !facultyId ||
+      !fromDate ||
+      !toDate ||
+      !reason
+    ) {
+      return res.status(400).json({
+        message:
+          "Missing leave application fields.",
+      });
     }
 
-    if (!lookupResult || lookupResult.length === 0) {
-      return res.status(404).json({ message: "Faculty record not found." });
+    const [lookupResult] =
+      await db.query(
+        `SELECT faculty_Id
+         FROM Faculty
+         WHERE user_Id=?
+         OR faculty_Id=?
+         LIMIT 1`,
+        [facultyId, facultyId]
+      );
+
+    if (lookupResult.length === 0) {
+      return res.status(404).json({
+        message:
+          "Faculty record not found.",
+      });
     }
 
-    const realFacultyId = lookupResult[0].faculty_Id;
-    const sql = "INSERT INTO Faculty_Leave (faculty_Id, from_date, to_date, reason) VALUES (?, ?, ?, ?)";
+    const realFacultyId =
+      lookupResult[0].faculty_Id;
 
-    db.query(sql, [realFacultyId, fromDate, toDate, reason], (err) => {
-      if (err) {
-        console.error("Leave insert failed:", err);
-        return res.status(500).json({ message: "Failed to Apply Leave." });
-      }
-      res.json({ message: "Leave Applied Successfully" });
+    await db.query(
+      `INSERT INTO Faculty_Leave
+       (faculty_Id, from_date,
+        to_date, reason)
+       VALUES (?, ?, ?, ?)`,
+      [
+        realFacultyId,
+        fromDate,
+        toDate,
+        reason,
+      ]
+    );
+
+    res.json({
+      message:
+        "Leave Applied Successfully",
     });
-  });
+
+  } catch (err) {
+    console.error(err);
+
+    res.status(500).json({
+      message:
+        "Failed to Apply Leave.",
+    });
+  }
 });
 
-// =====================================================
 // ADMIN - PROCESS FACULTY LEAVE REQUESTS
-// =====================================================
-app.put("/admin/faculty-leaves/:id/approve", (req, res) => {
-  const leaveId = req.params.id;
-  db.query(
-    "UPDATE Faculty_Leave SET status='Approved' WHERE leave_Id=?",
-    [leaveId],
-    (err, result) => {
-      if (err) return res.status(500).json(err);
-      res.json({ message: "Leave Approved Successfully" });
-    }
-  );
-});
+app.put(
+  "/admin/faculty-leaves/:id/approve",
+  async (req, res) => {
+    try {
+      await db.query(
+        `UPDATE Faculty_Leave
+         SET status='Approved'
+         WHERE leave_Id=?`,
+        [req.params.id]
+      );
 
-app.put("/admin/faculty-leaves/:id/reject", (req, res) => {
-  const leaveId = req.params.id;
-  db.query(
-    "UPDATE Faculty_Leave SET status='Rejected' WHERE leave_Id=?",
-    [leaveId],
-    (err, result) => {
-      if (err) return res.status(500).json(err);
-      res.json({ message: "Leave Rejected Successfully" });
-    }
-  );
-});
+      res.json({
+        message:
+          "Leave Approved Successfully",
+      });
 
-app.get("/admin/faculty-leaves", (req, res) => {
-  const sql = `
-    SELECT fl.leave_Id, fl.faculty_Id, f.first_name, f.last_name, 
-           fl.from_date, fl.to_date, fl.reason, fl.status, fl.applied_on
-    FROM Faculty_Leave fl
-    JOIN Faculty f ON fl.faculty_Id = f.faculty_Id
-    ORDER BY fl.applied_on DESC
-  `;
-
-  db.query(sql, (err, result) => {
-    if (err) {
-      console.error(err);
-      return res.status(500).json(err);
+    } catch (err) {
+      res.status(500).json(err);
     }
+  }
+);
+
+app.put(
+  "/admin/faculty-leaves/:id/reject",
+  async (req, res) => {
+    try {
+      await db.query(
+        `UPDATE Faculty_Leave
+         SET status='Rejected'
+         WHERE leave_Id=?`,
+        [req.params.id]
+      );
+
+      res.json({
+        message:
+          "Leave Rejected Successfully",
+      });
+
+    } catch (err) {
+      res.status(500).json(err);
+    }
+  }
+);
+
+app.get("/admin/faculty-leaves", async (req, res) => {
+  try {
+    const [result] = await db.query(`
+      SELECT fl.leave_Id,
+             fl.faculty_Id,
+             f.first_name,
+             f.last_name,
+             fl.from_date,
+             fl.to_date,
+             fl.reason,
+             fl.status,
+             fl.applied_on
+      FROM Faculty_Leave fl
+      JOIN Faculty f
+      ON fl.faculty_Id = f.faculty_Id
+      ORDER BY fl.applied_on DESC
+    `);
+
     res.json(result);
-  });
+
+  } catch (err) {
+    console.error(err);
+
+    res.status(500).json(err);
+  }
 });
 
 // ---------------- SERVER ----------------
 const PORT = process.env.PORT || 5000;
 server.listen(PORT, () =>
-  console.log(`Server running on http://localhost:${PORT}/login.html`)
+  console.log(`Server running on http://localhost:${PORT}/login.html`),
 );

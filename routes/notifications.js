@@ -8,13 +8,13 @@ router.post('/send', async(req, res) => {
     const io = req.app.get('io');
 
     try {
-        await db.promise().query(
+        await db.query(
             'INSERT INTO notifications (title, message, target) VALUES (?, ?, ?)',
             [title, message, target]
         );
 
-        io.emit('new notification', {title, message, target});
-        io.emit('new_notification', {title, message, target});
+        io.to(target).emit('new notification', {title, message, target});
+        io.to(target).emit('new_notification', {title, message, target});
 
         res.json({ success: true});
     } catch(err) {
@@ -23,25 +23,44 @@ router.post('/send', async(req, res) => {
     }
 });
 
-router.get('/unread-count', async(req, res)=> {
-    const db= req.app.get('db');
-    const [rows] =await db.promise().query(
-        'SELECT COUNT(*) AS unreadCount FROM notifications WHERE is_read = 0'
-    );
-    res.json({ unreadCount: rows[0].unreadCount });
+router.get('/unread-count', async (req, res) => {
+  const db = req.app.get('db');
+
+  if (!req.session || !req.session.user) {
+    return res.json({ count: 0 });
+  }
+  const role = req.session.user.role;  // e.g. 'students'
+
+  const [rows] = await db.query(
+    `SELECT COUNT(*) AS count 
+     FROM notifications 
+     WHERE is_read = 0 
+     AND (target = ? OR target = 'all')`,
+    [role]
+  );
+  res.json({ count: rows[0].count });
 });
 
-router.get('/all', async(req, res) => {
-    const db= req.app.get('db');
-    const [rows]= await db.promise().query(
-        'SELECT * FROM notifications ORDER BY created_at DESC LIMIT 20'
-    );
-    res.json(rows);
+router.get('/all', async (req, res) => {
+  const db = req.app.get('db');
+   if (!req.session || !req.session.user) {
+    return res.json([]);
+  }
+  const role = req.session.user.role;
+
+  const [rows] = await db.query(
+    `SELECT * FROM notifications 
+     WHERE (target = ? OR target = 'all')
+     ORDER BY created_at DESC 
+     LIMIT 20`,
+    [role]
+  );
+  res.json(rows);
 });
 
 router.post('/mark-read', async(req, res) => {
     const db= req.app.get('db');
-    await db.promise().query(
+    await db.query(
         'UPDATE notifications SET is_read =1'
     );
     res.json({ success: true });

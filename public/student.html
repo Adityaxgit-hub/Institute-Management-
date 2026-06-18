@@ -783,6 +783,7 @@ box-shadow:0 12px 24px rgba(29,78,216,.25);
       loadData();
 
       let unreadCount = 0;
+      socket.emit('join_room', '<%=userId%>');
 
       fetch("/notifications/unread-count")
         .then((res) => res.json())
