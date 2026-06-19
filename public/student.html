@@ -783,12 +783,12 @@ box-shadow:0 12px 24px rgba(29,78,216,.25);
       loadData();
 
       let unreadCount = 0;
-      socket.emit('join_room', '<%=userId%>');
+      socket.emit('join_room', localStorage.getItem('role'));
 
-      fetch("/notifications/unread-count")
+      fetch(`/notifications/unread-count?role=${localStorage.getItem('role')}`)
         .then((res) => res.json())
         .then((data) => {
-          updateBadge(data.unreadCount);
+          updateBadge(data.count);
         })
         .catch((err) => console.error("Error fetching unread count:", err));
 
@@ -822,7 +822,7 @@ box-shadow:0 12px 24px rgba(29,78,216,.25);
       }
 
       function loadNotifications() {
-        fetch("/api/notifications/all")
+        fetch(`/api/notifications/all?role=${localStorage.getItem('role')}`)
           .then((r) => r.json())
           .then((data) => {
             const list = document.getElementById("notif-list");
@@ -855,7 +855,7 @@ box-shadow:0 12px 24px rgba(29,78,216,.25);
       }
 
       function markAllRead() {
-        fetch("/api/notifications/mark-read", { method: "POST" }).then(() => {
+        fetch(`/api/notifications/mark-read?role=${localStorage.getItem('role')}`, { method: "POST" }).then(() => {
           updateBadge(0);
           loadNotifications();
         });

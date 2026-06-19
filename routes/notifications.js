@@ -25,11 +25,9 @@ router.post('/send', async(req, res) => {
 
 router.get('/unread-count', async (req, res) => {
   const db = req.app.get('db');
+  const role = req.query.role;
 
-  if (!req.session || !req.session.user) {
-    return res.json({ count: 0 });
-  }
-  const role = req.session.user.role;  // e.g. 'students'
+  if (!role) return res.json({ count: 0 });
 
   const [rows] = await db.query(
     `SELECT COUNT(*) AS count 
@@ -43,10 +41,9 @@ router.get('/unread-count', async (req, res) => {
 
 router.get('/all', async (req, res) => {
   const db = req.app.get('db');
-   if (!req.session || !req.session.user) {
-    return res.json([]);
-  }
-  const role = req.session.user.role;
+  const role = req.query.role;
+
+  if (!role) return res.json([]);
 
   const [rows] = await db.query(
     `SELECT * FROM notifications 
@@ -58,10 +55,14 @@ router.get('/all', async (req, res) => {
   res.json(rows);
 });
 
-router.post('/mark-read', async(req, res) => {
-    const db= req.app.get('db');
+router.post('/mark-read', async (req, res) => {
+    const db = req.app.get('db');
+    const role = req.body.role || req.query.role;
+    if (!role) return res.status(400).json({ error: 'role required' });
+
     await db.query(
-        'UPDATE notifications SET is_read =1'
+      `UPDATE notifications SET is_read = 1 WHERE target = ? OR target = 'all'`,
+      [role]
     );
     res.json({ success: true });
 });
