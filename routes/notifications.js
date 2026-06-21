@@ -26,6 +26,8 @@ router.post('/send', async(req, res) => {
 router.get('/unread-count', async (req, res) => {
   const db = req.app.get('db');
   const role = req.query.role;
+  const userId = req.query.userId;
+  const personalTarget = userId ? `user_${userId}` : null;
 
   if (!role) return res.json({ count: 0 });
 
@@ -33,8 +35,8 @@ router.get('/unread-count', async (req, res) => {
     `SELECT COUNT(*) AS count 
      FROM notifications 
      WHERE is_read = 0 
-     AND (target = ? OR target = 'all')`,
-    [role]
+     AND (target = ? OR target = 'all' OR target = ?)`,
+    [role, personalTarget]
   );
   res.json({ count: rows[0].count });
 });
@@ -42,15 +44,17 @@ router.get('/unread-count', async (req, res) => {
 router.get('/all', async (req, res) => {
   const db = req.app.get('db');
   const role = req.query.role;
+  const userId = req.query.userId;
+  const personalTarget = userId ? `user_${userId}` : null;
 
   if (!role) return res.json([]);
 
   const [rows] = await db.query(
     `SELECT * FROM notifications 
-     WHERE (target = ? OR target = 'all')
+     WHERE (target = ? OR target = 'all' OR target = ?)
      ORDER BY created_at DESC 
      LIMIT 20`,
-    [role]
+    [role, personalTarget]
   );
   res.json(rows);
 });
@@ -58,11 +62,13 @@ router.get('/all', async (req, res) => {
 router.post('/mark-read', async (req, res) => {
     const db = req.app.get('db');
     const role = (req.body ? req.body.role : null) || req.query.role;
+    const userId = (req.body ? req.body.userId : null) || req.query.userId;
+    const personalTarget = userId ? `user_${userId}` : null;
     if (!role) return res.status(400).json({ error: 'role required' });
 
     await db.query(
-      `UPDATE notifications SET is_read = 1 WHERE target = ? OR target = 'all'`,
-      [role]
+      `UPDATE notifications SET is_read = 1 WHERE target = ? OR target = 'all' OR target = ?`,
+      [role, personalTarget]
     );
     res.json({ success: true });
 });

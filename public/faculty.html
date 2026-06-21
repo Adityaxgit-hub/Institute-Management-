@@ -707,7 +707,7 @@
         </div>
       </section>
     </main>
-
+    <script src="/socket.io/socket.io.js"></script>
     <script>
       const socket = window.io ? io() : null;
       function formatDate(dateString) {
@@ -837,9 +837,12 @@
       loadData();
 
       let unreadCount = 0;
-      socket.emit("join_room", localStorage.getItem('role'));
+      if (socket) {
+        socket.emit("join_room", localStorage.getItem('role'));
+        socket.emit("join_user_room", localStorage.getItem('userId'));
+      }
 
-      fetch(`/notifications/unread-count?role=${localStorage.getItem('role')}`)
+      fetch(`/notifications/unread-count?role=${localStorage.getItem('role')}&userId=${localStorage.getItem('userId')}`)
         .then((res) => res.json())
         .then((data) => {
           updateBadge(data.count);
@@ -876,7 +879,7 @@
       }
 
       function loadNotifications() {
-        fetch(`/api/notifications/all?role=${localStorage.getItem('role')}`)
+        fetch(`/api/notifications/all?role=${localStorage.getItem('role')}&userId=${localStorage.getItem('userId')}`)
           .then((r) => r.json())
           .then((data) => {
             const list = document.getElementById("notif-list");
@@ -909,7 +912,7 @@
       }
 
       function markAllRead() {
-        fetch(`/api/notifications/mark-read?role=${localStorage.getItem('role')}`, { method: "POST" }).then(() => {
+        fetch(`/api/notifications/mark-read?role=${localStorage.getItem('role')}&userId=${localStorage.getItem('userId')}`, { method: "POST" }).then(() => {
           updateBadge(0);
           loadNotifications();
         });

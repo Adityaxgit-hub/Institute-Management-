@@ -475,6 +475,81 @@
           grid-template-columns: 1fr;
         }
       }
+
+      .leave-row-decided {
+        opacity: 0.55;
+        background: #f1f5f9 !important;
+      }
+
+      .leave-row-decided td {
+        background: #f1f5f9 !important;
+      }
+
+      .status-badge {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        padding: 6px 14px;
+        border-radius: 999px;
+        font-weight: 800;
+        font-size: 0.8rem;
+        min-width: 90px;
+      }
+
+      .status-pending {
+        background: #fff7ed;
+        color: var(--warning);
+        border: 1px solid #fed7aa;
+      }
+
+      .status-approved {
+        background: #dcfce7;
+        color: var(--success);
+        border: 1px solid #bbf7d0;
+      }
+
+      .status-rejected {
+        background: #fee2e2;
+        color: var(--danger);
+        border: 1px solid #fecaca;
+      }
+
+      .leave-action-btn {
+        height: 36px;
+        padding: 0 14px;
+        border-radius: 10px;
+        font: inherit;
+        font-weight: 800;
+        cursor: pointer;
+        border: 1px solid var(--border);
+        background: white;
+        margin-right: 6px;
+      }
+
+      .leave-action-btn.approve {
+        border-color: #bbf7d0;
+        color: var(--success);
+      }
+
+      .leave-action-btn.approve:hover {
+        background: var(--success);
+        color: white;
+      }
+
+      .leave-action-btn.reject {
+        border-color: #fecaca;
+        color: var(--danger);
+      }
+
+      .leave-action-btn.reject:hover {
+        background: var(--danger);
+        color: white;
+      }
+
+      .leave-action-btn[disabled] {
+        cursor: not-allowed;
+        opacity: 0.5;
+      }
     </style>
   </head>
   <body>
@@ -692,7 +767,7 @@
             .map(
               (row) => `
             <tr>
-              ${row.cells.map((cell) => `<td>${cell}</td>`).join('')}
+              ${row.cells.map((cell) => `<td>${cell}</td>`).join("")}
               <td>${row.actions || `<button class="delete" onclick="${deleteFn}('${deleteId(row)}')">Delete</button>`}</td>
             </tr>
           `,
@@ -894,33 +969,7 @@
         try {
           const res = await fetch("/admin/faculty-leaves");
           const data = await res.json();
-          renderTable(
-            [
-              "Leave ID",
-              "Faculty ID",
-              "Faculty Name",
-              "From",
-              "To",
-              "Status",
-              "Reason",
-            ],
-            data.map((l) => ({
-              cells: [
-                l.leave_Id,
-                l.faculty_Id,
-                `${l.first_name} ${l.last_name}`,
-                l.from_date || '-',
-                l.to_date || '-',
-                l.status || '-',
-                l.reason || '-',
-              ],
-              actions: l.status === 'Pending'
-                ? `<button class="action-button approve" onclick="approveRejectLeave('${l.leave_Id}', true)">Approve</button> <button class="action-button reject" onclick="approveRejectLeave('${l.leave_Id}', false)">Reject</button>`
-                : `<span>${l.status}</span>`,
-            })),
-            (row) => row.cells[0],
-            "approveRejectLeave",
-          );
+          renderLeaveTable(data);
         } catch (e) {
           console.error(e);
           table.innerHTML =
@@ -928,6 +977,70 @@
         }
       }
 
+      function renderLeaveTable(data) {
+        const table = document.getElementById("dataTable");
+        document.getElementById("recordCount").textContent = data.length;
+
+        if (data.length === 0) {
+          table.innerHTML = `<tr><td colspan="7" class="empty">No leave requests available.</td></tr>`;
+          return;
+        }
+
+        // Pending requests first, decided ones (Approved/Rejected) pushed to the bottom.
+        // Within each group, newest first (data already comes ordered by applied_on DESC).
+        const sorted = [...data].sort((a, b) => {
+          const aPending = a.status === "Pending" ? 0 : 1;
+          const bPending = b.status === "Pending" ? 0 : 1;
+          return aPending - bPending;
+        });
+
+        table.innerHTML = `
+    <thead>
+      <tr>
+        <th>Leave ID</th>
+        <th>Faculty ID</th>
+        <th>Faculty Name</th>
+        <th>From</th>
+        <th>To</th>
+        <th>Reason</th>
+        <th>Status / Action</th>
+      </tr>
+    </thead>
+    <tbody>
+      ${sorted.map(renderLeaveRow).join("")}
+    </tbody>
+  `;
+      }
+
+      function renderLeaveRow(l) {
+        const isDecided = l.status === "Approved" || l.status === "Rejected";
+        const rowClass = isDecided ? "leave-row-decided" : "";
+
+        let actionHtml;
+
+        if (l.status === "Approved") {
+          actionHtml = `<span class="status-badge status-approved">✓ Approved</span>`;
+        } else if (l.status === "Rejected") {
+          actionHtml = `<span class="status-badge status-rejected">✕ Rejected</span>`;
+        } else {
+          actionHtml = `
+      <button class="leave-action-btn approve" onclick="decideLeave(${l.leave_Id}, 'approve')">Approve</button>
+      <button class="leave-action-btn reject" onclick="decideLeave(${l.leave_Id}, 'reject')">Reject</button>
+    `;
+        }
+
+        return `
+    <tr class="${rowClass}">
+      <td>${l.leave_Id}</td>
+      <td>${l.faculty_Id}</td>
+      <td>${l.first_name} ${l.last_name}</td>
+      <td>${l.from_date || "-"}</td>
+      <td>${l.to_date || "-"}</td>
+      <td>${l.reason || "-"}</td>
+      <td>${actionHtml}</td>
+    </tr>
+  `;
+      }
       async function addRecord() {
         if (activeTab === "students") return addStudent();
         if (activeTab === "faculty") return addFaculty();
@@ -1046,20 +1159,27 @@
         }
       }
 
-      async function approveRejectLeave(id, approve) {
-        const url = approve ? '/admin/faculty-leaves/' + id + '/approve' : '/admin/faculty-leaves/' + id + '/reject';
+      async function decideLeave(id, action) {
+        const confirmed = confirm(
+          action === "approve"
+            ? "Approve this leave request?"
+            : "Reject this leave request?",
+        );
+        if (!confirmed) return;
+
+        const url = `/admin/faculty-leaves/${id}/${action}`;
+
         try {
           const res = await fetch(url, { method: "PUT" });
           const data = await res.json();
           if (!res.ok) throw new Error(data.message || "Update failed");
-          showToast(approve ? "Leave approved" : "Leave rejected");
-          loadLeaves();
+          showToast(action === "approve" ? "Leave approved" : "Leave rejected");
+          loadLeaves(); 
         } catch (e) {
           console.error(e);
           showToast(e.message || "Unable to update leave request");
         }
       }
-
       window.addEventListener("load", () => showTab("students"));
     </script>
   </body>

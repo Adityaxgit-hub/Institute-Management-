@@ -783,7 +783,9 @@ box-shadow:0 12px 24px rgba(29,78,216,.25);
       loadData();
 
       let unreadCount = 0;
-      socket.emit('join_room', localStorage.getItem('role'));
+      if (socket) {
+        socket.emit('join_room', localStorage.getItem('role'));
+      }
 
       fetch(`/notifications/unread-count?role=${localStorage.getItem('role')}`)
         .then((res) => res.json())

@@ -63,6 +63,14 @@ io.on("connection", (socket) => {
       console.log(`Socket ${socket.id} joined room: ${role} + all`);
     }
   });
+
+  socket.on("join_user_room", (userId) => {
+    if(userId){
+      socket.join(`user_${userId}`);
+      console.log(`Socket ${socket.id} joined room: user_${userId}`);
+    }
+  });
+
   socket.on("disconnect", () => {
     console.log("User disconnected:", socket.id);
   });
@@ -815,49 +823,71 @@ app.post("/faculty/apply-leave", async (req, res) => {
 });
 
 // ADMIN - PROCESS FACULTY LEAVE REQUESTS
-app.put(
-  "/admin/faculty-leaves/:id/approve",
-  async (req, res) => {
-    try {
-      await db.query(
-        `UPDATE Faculty_Leave
-         SET status='Approved'
-         WHERE leave_Id=?`,
-        [req.params.id]
-      );
 
-      res.json({
-        message:
-          "Leave Approved Successfully",
-      });
+async function notifyFacultyLeaveDecision(leaveId, decision) {
+  // decision is "Approved" or "Rejected"
 
-    } catch (err) {
-      res.status(500).json(err);
-    }
+  // 1. find the faculty's user_Id + name from the leave record
+  const [rows] = await db.query(
+    `SELECT f.user_Id, f.first_name, f.last_name
+     FROM Faculty_Leave fl
+     JOIN Faculty f ON fl.faculty_Id = f.faculty_Id
+     WHERE fl.leave_Id = ?`,
+    [leaveId]
+  );
+
+  if (rows.length === 0) return; // leave record not found, nothing to notify
+
+  const { user_Id, first_name, last_name } = rows[0];
+
+  const title = `Leave Request ${decision}`;
+  const message = `Hi ${first_name}, your leave request has been ${decision.toLowerCase()} by the admin.`;
+  const target = `user_${user_Id}`; // personal target, not a role
+
+  // 2. store it so it shows up in their notification list / unread count
+  await db.query(
+    "INSERT INTO notifications (title, message, target) VALUES (?, ?, ?)",
+    [title, message, target]
+  );
+
+  // 3. push it live to that faculty member's personal socket room
+  io.to(target).emit("new notification", { title, message, target });
+  io.to(target).emit("new_notification", { title, message, target });
+}
+
+app.put("/admin/faculty-leaves/:id/approve", async (req, res) => {
+  try {
+    await db.query(
+      `UPDATE Faculty_Leave SET status='Approved' WHERE leave_Id=?`,
+      [req.params.id]
+    );
+
+    await notifyFacultyLeaveDecision(req.params.id, "Approved");
+
+    res.json({ message: "Leave Approved Successfully" });
+
+  } catch (err) {
+    console.error(err);
+    res.status(500).json(err);
   }
-);
+});
 
-app.put(
-  "/admin/faculty-leaves/:id/reject",
-  async (req, res) => {
-    try {
-      await db.query(
-        `UPDATE Faculty_Leave
-         SET status='Rejected'
-         WHERE leave_Id=?`,
-        [req.params.id]
-      );
+app.put("/admin/faculty-leaves/:id/reject", async (req, res) => {
+  try {
+    await db.query(
+      `UPDATE Faculty_Leave SET status='Rejected' WHERE leave_Id=?`,
+      [req.params.id]
+    );
 
-      res.json({
-        message:
-          "Leave Rejected Successfully",
-      });
+    await notifyFacultyLeaveDecision(req.params.id, "Rejected");
 
-    } catch (err) {
-      res.status(500).json(err);
-    }
+    res.json({ message: "Leave Rejected Successfully" });
+
+  } catch (err) {
+    console.error(err);
+    res.status(500).json(err);
   }
-);
+});
 
 app.get("/admin/faculty-leaves", async (req, res) => {
   try {
