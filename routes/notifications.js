@@ -57,7 +57,7 @@ router.get('/all', async (req, res) => {
 
 router.post('/mark-read', async (req, res) => {
     const db = req.app.get('db');
-    const role = req.body.role || req.query.role;
+    const role = (req.body ? req.body.role : null) || req.query.role;
     if (!role) return res.status(400).json({ error: 'role required' });
 
     await db.query(
