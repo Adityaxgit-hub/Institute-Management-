@@ -287,25 +287,33 @@ CREATE TABLE notifications(
 
 
 CREATE TABLE Faculty_Leave (
-
     leave_Id INT AUTO_INCREMENT PRIMARY KEY,
-
     faculty_Id INT NOT NULL,
-
     from_date DATE NOT NULL,
-
     to_date DATE NOT NULL,
-
     reason TEXT NOT NULL,
-
     status ENUM('Pending','Approved','Rejected')
     DEFAULT 'Pending',
-
     applied_on TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-
     FOREIGN KEY (faculty_Id)
     REFERENCES Faculty(faculty_Id)
-
 );
 
 DESC Faculty;
+
+
+UPDATE notifications SET target = 'student' WHERE target = 'students';
+
+ALTER TABLE notifications 
+ADD COLUMN pdf_url VARCHAR(500) NULL AFTER target;
+
+ALTER TABLE notifications 
+ADD COLUMN dept_Id INT NULL AFTER pdf_url;
+
+CREATE TABLE notification_attachments (
+  id INT PRIMARY KEY AUTO_INCREMENT,
+  notification_id INT NOT NULL,
+  file_name VARCHAR(255) NOT NULL,
+  file_path VARCHAR(500) NOT NULL,
+  FOREIGN KEY (notification_id) REFERENCES notifications(id)
+);

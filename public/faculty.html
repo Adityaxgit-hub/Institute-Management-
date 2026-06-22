@@ -734,6 +734,8 @@
             throw new Error(body.message || "Failed to load faculty data");
           }
           const data = await res.json();
+          localStorage.setItem('deptId', data.faculty.dept_Id); // store deptId for notifications
+          fetchUnreadCount();
 
           const f = data.faculty;
           document.getElementById("facultyInfo").innerHTML = `
@@ -838,16 +840,25 @@
 
       let unreadCount = 0;
       if (socket) {
-        socket.emit("join_room", localStorage.getItem('role'));
-        socket.emit("join_user_room", localStorage.getItem('userId'));
+        socket.emit("join_room", localStorage.getItem("role"));
+        socket.emit("join_user_room", localStorage.getItem("userId"));
       }
 
-      fetch(`/notifications/unread-count?role=${localStorage.getItem('role')}&userId=${localStorage.getItem('userId')}`)
-        .then((res) => res.json())
-        .then((data) => {
-          updateBadge(data.count);
-        })
-        .catch((err) => console.error("Error fetching unread count:", err));
+      function fetchUnreadCount() {
+        const role = localStorage.getItem("role");
+        const userId = localStorage.getItem("userId");
+        const deptId = localStorage.getItem("deptId");
+        if (!role || !userId) return;
+
+        fetch(
+          `/notifications/unread-count?role=${role}&userId=${userId}&deptId=${deptId}`,
+        )
+          .then((res) => res.json())
+          .then((data) => {
+            updateBadge(data.count);
+          })
+          .catch((err) => console.error("Error fetching unread count:", err));
+      }
 
       if (socket) {
         const handleNotification = (notif) => {
@@ -879,7 +890,9 @@
       }
 
       function loadNotifications() {
-        fetch(`/api/notifications/all?role=${localStorage.getItem('role')}&userId=${localStorage.getItem('userId')}`)
+        fetch(
+          `/api/notifications/all?role=${localStorage.getItem("role")}&userId=${localStorage.getItem("userId")}&deptId=${localStorage.getItem("deptId")}`,
+        )
           .then((r) => r.json())
           .then((data) => {
             const list = document.getElementById("notif-list");
@@ -897,11 +910,26 @@
                     <span class="notif-item-dot"></span>
                     <span class="notif-item-title">${n.title}</span>
                   </span>
-                  <span class="notif-item-time">${new Date(n.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</span>
+                  <span class="notif-item-time">${new Date(n.created_at).toLocaleDateString([], { day: "2-digit", month: "short", year: "numeric" })}</span>
                 </div>
                 <p class="notif-item-message">${n.message}</p>
+${
+  n.pdf_url
+    ? `
+  <a href="${n.pdf_url}" target="_blank" style="
+    display:inline-flex;align-items:center;gap:6px;
+    margin-top:6px;padding:6px 12px;
+    border-radius:8px;border:1px solid #dbe3ef;
+    background:#f8fafc;color:#1d4ed8;
+    font-size:0.82rem;font-weight:700;text-decoration:none;
+  ">
+    👁 View PDF
+  </a>
+`
+    : ""
+}
                 <div class="notif-item-meta">
-                  <span>${new Date(n.created_at).toLocaleDateString([], { month: "short", day: "numeric" })}</span>
+                  <span>${new Date(n.created_at).toLocaleDateString([], { day: "2-digit", month: "short", year: "numeric" })}</span>
                   <span>${n.target || "students"}</span>
                 </div>
               </div>
@@ -912,7 +940,10 @@
       }
 
       function markAllRead() {
-        fetch(`/api/notifications/mark-read?role=${localStorage.getItem('role')}&userId=${localStorage.getItem('userId')}`, { method: "POST" }).then(() => {
+        fetch(
+          `/api/notifications/mark-read?role=${localStorage.getItem("role")}&userId=${localStorage.getItem("userId")}&deptId=${localStorage.getItem("deptId")}`,
+          { method: "POST" },
+        ).then(() => {
           updateBadge(0);
           loadNotifications();
         });

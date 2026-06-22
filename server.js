@@ -11,6 +11,9 @@ const app = express();
 const server = http.createServer(app);
 const io = new Server(server);
 const saltRounds = 10;
+const multer = require('multer');
+const path = require('path');
+const fs = require('fs');
 
 app.use(cors());
 app.use(express.json());
@@ -40,10 +43,12 @@ db.getConnection()
 
 db.query(`
   CREATE TABLE IF NOT EXISTS notifications (
-    notification_Id INT PRIMARY KEY AUTO_INCREMENT,
+    id INT PRIMARY KEY AUTO_INCREMENT,
     title VARCHAR(255) NOT NULL,
     message TEXT NOT NULL,
     target VARCHAR(50) NOT NULL,
+    pdf_url VARCHAR(500) NULL,
+    dept_Id INT NULL,
     is_read TINYINT(1) NOT NULL DEFAULT 0,
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
   )
@@ -75,6 +80,21 @@ io.on("connection", (socket) => {
     console.log("User disconnected:", socket.id);
   });
 });
+
+// ---------------- NOTIFICATIONS pdf----------------
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    const dir = './public/uploads/pdfs';
+    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+    cb(null, dir);
+  },
+  filename: (req, file, cb) => {
+    cb(null, Date.now() + '-' + file.originalname);
+  }
+});
+const upload = multer({ storage, fileFilter: (req, file, cb) => {
+  cb(null, file.mimetype === 'application/pdf');
+}});
 
 // ---------------- LOGIN ----------------
 app.post("/login", async (req, res) => {
@@ -177,7 +197,7 @@ app.get("/student/:userId", async (req, res) => {
   try {
     const studentQuery = `
       SELECT s.student_Id, s.first_name, s.last_name,
-             s.email, s.phone, s.DOB, d.dept_name
+             s.email, s.phone, s.DOB, d.dept_name, s.dept_Id
       FROM Students s
       JOIN Department d ON s.dept_Id = d.dept_Id
       WHERE s.user_Id = ?;
@@ -329,7 +349,7 @@ app.get("/faculty/:userId", async (req, res) => {
   const { userId } = req.params;
   try {
     const [faculty] = await db.query(
-      `SELECT f.faculty_Id, f.first_name, f.last_name, f.email, f.phone, f.designation, f.join_date, d.dept_name
+      `SELECT f.faculty_Id, f.first_name, f.last_name, f.email, f.phone, f.designation, f.join_date, d.dept_name, f.dept_Id
        FROM Faculty f
        JOIN Department d ON f.dept_Id = d.dept_Id
        WHERE f.user_Id = ?`,
@@ -916,7 +936,22 @@ app.get("/admin/faculty-leaves", async (req, res) => {
   }
 });
 
-// ---------------- SERVER ----------------
+// -- ADMIN - UPLOAD PDF 
+app.post('/admin/upload-pdf', upload.single('pdf'), (req, res) => {
+  if (!req.file) return res.status(400).json({ error: 'No PDF uploaded' });
+  res.json({ url: `/uploads/pdfs/${req.file.filename}`, name: req.file.originalname });
+});
+
+app.get('/admin/departments', async (req, res) => {
+  try {
+    const [rows] = await db.query('SELECT dept_Id, dept_name FROM Department');
+    res.json(rows);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// -- SERVER
 const PORT = process.env.PORT || 5000;
 server.listen(PORT, () =>
   console.log(`Server running on http://localhost:${PORT}/login.html`),

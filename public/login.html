@@ -145,6 +145,7 @@
 
     .field {
       margin-bottom: 20px;
+      position: relative;
     }
 
     label {
@@ -265,16 +266,16 @@
       <h2>Login</h2>
       <p class="subtitle">Sign in to access your institute dashboard.</p>
 
-      <div class="field">
-        <label for="username">Username</label>
-        <input id="username" type="text" autocomplete="username" placeholder="Enter username" />
-      </div>
-
       <form id="loginForm">
+        <div class="field">
+          <label for="username">Username</label>
+          <input id="username" type="text" autocomplete="username" placeholder="Enter username" />
+        </div>
+
         <div class="field">
           <label for="password">Password</label>
           <input id="password" type="password" autocomplete="current-password" placeholder="Enter password" />
-          <img src="https://img.icons8.com/ios-glyphs/30/000000/visible--v1.png" alt="Show password" style="position: absolute; right: 16px; top: 50%; transform: translateY(-50%); cursor: pointer;" onclick="togglePasswordVisibility()" />
+          <img src="https://img.icons8.com/ios-glyphs/30/000000/visible--v1.png" alt="Show password" style="position: absolute; right: 16px; bottom: 13px; width: 24px; height: 24px; cursor: pointer;" onclick="togglePasswordVisibility()" />
         </div>
 
         <div class="forgotPass">

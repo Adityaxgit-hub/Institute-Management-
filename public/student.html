@@ -134,8 +134,11 @@
         color: var(--text);
         cursor: pointer;
         box-shadow: 0 10px 22px rgba(15, 23, 42, 0.05);
-        transition: transform 0.2s ease, border-color 0.2s ease,
-          box-shadow 0.2s ease, color 0.2s ease;
+        transition:
+          transform 0.2s ease,
+          border-color 0.2s ease,
+          box-shadow 0.2s ease,
+          color 0.2s ease;
       }
 
       .notif-toggle:hover {
@@ -221,7 +224,9 @@
         cursor: pointer;
         padding: 6px 8px;
         border-radius: 10px;
-        transition: background 0.2s ease, color 0.2s ease;
+        transition:
+          background 0.2s ease,
+          color 0.2s ease;
       }
 
       .notif-mark-read:hover {
@@ -257,8 +262,11 @@
         padding: 14px;
         border-radius: 14px;
         border: 1px solid transparent;
-        transition: transform 0.2s ease, border-color 0.2s ease,
-          background 0.2s ease, box-shadow 0.2s ease;
+        transition:
+          transform 0.2s ease,
+          border-color 0.2s ease,
+          background 0.2s ease,
+          box-shadow 0.2s ease;
       }
 
       .notif-item + .notif-item {
@@ -543,31 +551,42 @@
         color: var(--muted);
       }
 
-      
-.attendance-card{
-display:flex;
-justify-content:space-between;
-align-items:center;
-gap:20px;
-padding:30px;
-flex-wrap:wrap;
-}
-.attendance-left{display:flex;align-items:center;gap:20px;}
-.attendance-icon{
-width:70px;height:70px;border-radius:18px;
-background:linear-gradient(135deg,#1d4ed8,#0f766e);
-display:flex;align-items:center;justify-content:center;
-font-size:32px;color:#fff;
-}
-.attendance-btn{
-background:linear-gradient(135deg,#1d4ed8,#0f766e);
-color:#fff;border:none;border-radius:12px;
-padding:14px 28px;font-weight:700;cursor:pointer;
-}
-.attendance-btn:hover{
-box-shadow:0 12px 24px rgba(29,78,216,.25);
-}
-
+      .attendance-card {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 20px;
+        padding: 30px;
+        flex-wrap: wrap;
+      }
+      .attendance-left {
+        display: flex;
+        align-items: center;
+        gap: 20px;
+      }
+      .attendance-icon {
+        width: 70px;
+        height: 70px;
+        border-radius: 18px;
+        background: linear-gradient(135deg, #1d4ed8, #0f766e);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 32px;
+        color: #fff;
+      }
+      .attendance-btn {
+        background: linear-gradient(135deg, #1d4ed8, #0f766e);
+        color: #fff;
+        border: none;
+        border-radius: 12px;
+        padding: 14px 28px;
+        font-weight: 700;
+        cursor: pointer;
+      }
+      .attendance-btn:hover {
+        box-shadow: 0 12px 24px rgba(29, 78, 216, 0.25);
+      }
 
       @media (max-width: 900px) {
         .page-header {
@@ -608,18 +627,35 @@ box-shadow:0 12px 24px rgba(29,78,216,.25);
         </div>
         <div class="topbar-actions">
           <div class="notif-wrapper">
-            <button class="notif-toggle" type="button" onclick="toggleNotifPanel()" aria-label="Open notifications">
+            <button
+              class="notif-toggle"
+              type="button"
+              onclick="toggleNotifPanel()"
+              aria-label="Open notifications"
+            >
               <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
-                <path d="M12 21a2.25 2.25 0 0 0 2.19-1.75h-4.38A2.25 2.25 0 0 0 12 21Z" fill="currentColor" />
-                <path d="M19 17H5c.83-.86 1.32-2.02 1.37-3.24V10a5.63 5.63 0 0 1 4.88-5.6V4a1.75 1.75 0 1 1 3.5 0v.4A5.63 5.63 0 0 1 19.63 10v3.76c.05 1.22.54 2.38 1.37 3.24ZM12 7a3 3 0 0 0-3 3v3.95c0 .92-.28 1.8-.79 2.55h7.58a4.47 4.47 0 0 1-.79-2.55V10a3 3 0 0 0-3-3Z" fill="currentColor" />
+                <path
+                  d="M12 21a2.25 2.25 0 0 0 2.19-1.75h-4.38A2.25 2.25 0 0 0 12 21Z"
+                  fill="currentColor"
+                />
+                <path
+                  d="M19 17H5c.83-.86 1.32-2.02 1.37-3.24V10a5.63 5.63 0 0 1 4.88-5.6V4a1.75 1.75 0 1 1 3.5 0v.4A5.63 5.63 0 0 1 19.63 10v3.76c.05 1.22.54 2.38 1.37 3.24ZM12 7a3 3 0 0 0-3 3v3.95c0 .92-.28 1.8-.79 2.55h7.58a4.47 4.47 0 0 1-.79-2.55V10a3 3 0 0 0-3-3Z"
+                  fill="currentColor"
+                />
               </svg>
             </button>
-            <span id="notif-badge" class="notif-badge" style="display: none;">0</span>
+            <span id="notif-badge" class="notif-badge" style="display: none"
+              >0</span
+            >
             <!-- Notification dropdown panel -->
             <div id="notif-panel" class="notif-panel">
               <div class="notif-panel-header">
                 <span class="notif-panel-title">Notifications</span>
-                <button class="notif-mark-read" type="button" onclick="markAllRead()">
+                <button
+                  class="notif-mark-read"
+                  type="button"
+                  onclick="markAllRead()"
+                >
                   Mark all read
                 </button>
               </div>
@@ -672,7 +708,6 @@ box-shadow:0 12px 24px rgba(29,78,216,.25);
         </div>
       </section>
       <section>
-
         <div class="section-title">
           <h3>Student Services</h3>
           <span>Quick Access</span>
@@ -688,15 +723,15 @@ box-shadow:0 12px 24px rgba(29,78,216,.25);
               </div>
             </div>
 
-            <button class="attendance-btn"
-              onclick="window.location.href='student-attendance.html'">
+            <button
+              class="attendance-btn"
+              onclick="window.location.href = 'student-attendance.html'"
+            >
               View Attendance
             </button>
           </div>
         </div>
-
       </section>
-
     </main>
 
     <script>
@@ -723,6 +758,8 @@ box-shadow:0 12px 24px rgba(29,78,216,.25);
           const res = await fetch(`/student/${userId}`);
           if (!res.ok) throw new Error("Failed to load student data");
           const data = await res.json();
+          localStorage.setItem("deptId", data.student.dept_Id); // store deptId for notifications
+          fetchUnreadCount();
 
           document.getElementById("profileCard").innerHTML = `
           <h3>${data.student.first_name} ${data.student.last_name}</h3>
@@ -784,15 +821,24 @@ box-shadow:0 12px 24px rgba(29,78,216,.25);
 
       let unreadCount = 0;
       if (socket) {
-        socket.emit('join_room', localStorage.getItem('role'));
+        socket.emit("join_room", localStorage.getItem("role"));
       }
 
-      fetch(`/notifications/unread-count?role=${localStorage.getItem('role')}`)
-        .then((res) => res.json())
-        .then((data) => {
-          updateBadge(data.count);
-        })
-        .catch((err) => console.error("Error fetching unread count:", err));
+      function fetchUnreadCount() {
+        const role = localStorage.getItem("role");
+        const userId = localStorage.getItem("userId");
+        const deptId = localStorage.getItem("deptId");
+        if (!role || !userId) return;
+
+        fetch(
+          `/notifications/unread-count?role=${role}&userId=${userId}&deptId=${deptId}`,
+        )
+          .then((res) => res.json())
+          .then((data) => {
+            updateBadge(data.count);
+          })
+          .catch((err) => console.error("Error fetching unread count:", err));
+      }
 
       if (socket) {
         const handleNotification = (notif) => {
@@ -824,7 +870,9 @@ box-shadow:0 12px 24px rgba(29,78,216,.25);
       }
 
       function loadNotifications() {
-        fetch(`/api/notifications/all?role=${localStorage.getItem('role')}`)
+        fetch(
+          `/api/notifications/all?role=${localStorage.getItem("role")}&userId=${localStorage.getItem("userId")}&deptId=${localStorage.getItem("deptId")}`,
+        )
           .then((r) => r.json())
           .then((data) => {
             const list = document.getElementById("notif-list");
@@ -842,12 +890,33 @@ box-shadow:0 12px 24px rgba(29,78,216,.25);
               <span class="notif-item-dot"></span>
               <span class="notif-item-title">${n.title}</span>
             </span>
-            <span class="notif-item-time">${new Date(n.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+            <span class="notif-item-time">${new Date(
+              n.created_at,
+            ).toLocaleDateString([], {
+              day: "2-digit",
+              month: "short",
+              year: "numeric",
+            })}</span>
           </div>
           <p class="notif-item-message">${n.message}</p>
+${
+  n.pdf_url
+    ? `
+  <a href="${n.pdf_url}" target="_blank" style="
+    display:inline-flex;align-items:center;gap:6px;
+    margin-top:6px;padding:6px 12px;
+    border-radius:8px;border:1px solid #dbe3ef;
+    background:#f8fafc;color:#1d4ed8;
+    font-size:0.82rem;font-weight:700;text-decoration:none;
+  ">
+    👁 View PDF
+  </a>
+`
+    : ""
+}
           <div class="notif-item-meta">
-            <span>${new Date(n.created_at).toLocaleDateString([], { month: 'short', day: 'numeric' })}</span>
-            <span>${n.target || 'students'}</span>
+            <span>${new Date(n.created_at).toLocaleDateString([], { month: "short", day: "numeric" })}</span>
+            <span>${n.target || "students"}</span>
           </div>
         </div>
       `,
@@ -857,7 +926,10 @@ box-shadow:0 12px 24px rgba(29,78,216,.25);
       }
 
       function markAllRead() {
-        fetch(`/api/notifications/mark-read?role=${localStorage.getItem('role')}`, { method: "POST" }).then(() => {
+        fetch(
+          `/api/notifications/mark-read?role=${localStorage.getItem("role")}&userId=${localStorage.getItem("userId")}&deptId=${localStorage.getItem("deptId")}`,
+          { method: "POST" },
+        ).then(() => {
           updateBadge(0);
           loadNotifications();
         });
@@ -875,8 +947,6 @@ box-shadow:0 12px 24px rgba(29,78,216,.25);
         document.body.appendChild(toast);
         setTimeout(() => toast.remove(), 4000);
       }
-
-      
     </script>
   </body>
 </html>

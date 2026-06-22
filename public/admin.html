@@ -570,23 +570,39 @@
       <div class="sendnotif">
         <h2>Send Notification</h2>
         <form id="notif-form">
-          <input
-            type="text"
-            id="notif-title"
-            placeholder="Title (e.g. Exam Reminder)"
-            required
-          />
+          <input type="text" id="notif-title" placeholder="Title" required />
           <textarea
             id="notif-message"
-            placeholder="Write your message here..."
+            placeholder="Message..."
             required
-            style="min-height: 140px"
+            style="min-height: 100px"
           ></textarea>
+
           <select id="notif-target">
             <option value="all">All users</option>
             <option value="student">Students only</option>
             <option value="faculty">Faculty only</option>
+            <option value="department">By Department</option>
           </select>
+
+          <!-- Show only when "By Department" is selected -->
+          <select id="notif-dept" style="display: none">
+            <option value="">Select Department</option>
+          </select>
+
+          <!-- PDF attachment -->
+          <div>
+            <label style="font-size: 0.88rem; font-weight: 700; color: #334155"
+              >Attach PDF (optional)</label
+            >
+            <input
+              type="file"
+              id="notif-pdf"
+              accept="application/pdf"
+              style="margin-top: 8px"
+            />
+          </div>
+
           <button type="submit">Send Notification</button>
         </form>
         <p id="notif-status" style="color: var(--success); display: none">
@@ -641,14 +657,58 @@
     <div class="toast" id="toast"></div>
 
     <script>
+      // Load departments on page load
+      async function loadDepartments() {
+        const res = await fetch("/admin/departments");
+        const depts = await res.json();
+        const sel = document.getElementById("notif-dept");
+        depts.forEach((d) => {
+          sel.innerHTML += `<option value="${d.dept_Id}">${d.dept_name}</option>`;
+        });
+      }
+      loadDepartments();
+
+      document
+        .getElementById("notif-target")
+        .addEventListener("change", function () {
+          document.getElementById("notif-dept").style.display =
+            this.value === "department" ? "block" : "none";
+        });
+
       document
         .getElementById("notif-form")
         .addEventListener("submit", async (e) => {
           e.preventDefault();
+
+          let pdfUrl = null;
+          const pdfFile = document.getElementById("notif-pdf").files[0];
+
+          // Upload PDF first if selected
+          if (pdfFile) {
+            const formData = new FormData();
+            formData.append("pdf", pdfFile);
+            const uploadRes = await fetch("/admin/upload-pdf", {
+              method: "POST",
+              body: formData,
+            });
+            const uploadData = await uploadRes.json();
+            pdfUrl = uploadData.url;
+          }
+
+          let target = document.getElementById("notif-target").value;
+          let dept_Id = null;
+
+          if (target === "department") {
+            target = "all"; // or specific role — adjust as needed
+            dept_Id = document.getElementById("notif-dept").value;
+          }
+
           const body = {
             title: document.getElementById("notif-title").value,
             message: document.getElementById("notif-message").value,
-            target: document.getElementById("notif-target").value,
+            target,
+            pdf_url: pdfUrl,
+            dept_Id,
           };
 
           const res = await fetch("/api/notifications/send", {
@@ -660,6 +720,7 @@
           if (res.ok) {
             document.getElementById("notif-status").style.display = "block";
             e.target.reset();
+            document.getElementById("notif-dept").style.display = "none";
             setTimeout(
               () =>
                 (document.getElementById("notif-status").style.display =
@@ -667,8 +728,7 @@
               3000,
             );
           } else {
-            const error = await res.json().catch(() => ({}));
-            showToast(error.error || "Failed to send notification");
+            showToast("Failed to send notification");
           }
         });
 
@@ -1174,7 +1234,7 @@
           const data = await res.json();
           if (!res.ok) throw new Error(data.message || "Update failed");
           showToast(action === "approve" ? "Leave approved" : "Leave rejected");
-          loadLeaves(); 
+          loadLeaves();
         } catch (e) {
           console.error(e);
           showToast(e.message || "Unable to update leave request");
