@@ -631,6 +631,23 @@
           <button class="tab" id="tabCourses" onclick="showTab('courses')">
             Courses
           </button>
+          <button
+            class="tab"
+            id="tabDepartments"
+            onclick="showTab('departments')"
+          >
+            Departments
+          </button>
+          <button
+            class="tab"
+            id="tabEnrollments"
+            onclick="showTab('enrollments')"
+          >
+            Enrollments
+          </button>
+          <button class="tab" id="tabTeaches" onclick="showTab('teaches')">
+            Teaches
+          </button>
           <button class="tab" id="tabLeave" onclick="showTab('leave')">
             Leave Requests
           </button>
@@ -659,14 +676,115 @@
     <script>
       // Load departments on page load
       async function loadDepartments() {
-        const res = await fetch("/admin/departments");
-        const depts = await res.json();
-        const sel = document.getElementById("notif-dept");
-        depts.forEach((d) => {
-          sel.innerHTML += `<option value="${d.dept_Id}">${d.dept_name}</option>`;
-        });
+        const facRes = await fetch("/admin/faculty");
+        const facData = await facRes.json();
+
+        renderForm(
+          [
+            {
+              id: "dept_name",
+              label: "Department Name",
+              placeholder: "e.g. Electrical Engineering",
+            },
+          ],
+          "Add Department",
+        );
+
+        const table = document.getElementById("dataTable");
+        table.innerHTML =
+          '<tr><td class="empty">Loading departments...</td></tr>';
+
+        try {
+          const res = await fetch("/admin/departments/full");
+          const data = await res.json();
+          document.getElementById("recordCount").textContent = data.length;
+
+          if (data.length === 0) {
+            table.innerHTML = `<tr><td colspan="4" class="empty">No departments found.</td></tr>`;
+            return;
+          }
+
+          const facultyOptions = facData
+            .map(
+              (f) =>
+                `<option value="${f.faculty_Id}">${f.first_name} ${f.last_name}</option>`,
+            )
+            .join("");
+
+          table.innerHTML = `
+      <thead>
+        <tr>
+          <th>Dept ID</th>
+          <th>Department Name</th>
+          <th>Head of Department</th>
+          <th>Action</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${data
+          .map(
+            (d) => `
+          <tr>
+            <td>${d.dept_Id}</td>
+            <td>${d.dept_name}</td>
+            <td>
+              <select onchange="updateHOD(${d.dept_Id}, this.value)" style="border:1px solid var(--border);border-radius:8px;padding:6px 10px;font:inherit;">
+                <option value="">-- No HOD --</option>
+                ${facData
+                  .map(
+                    (f) =>
+                      `<option value="${f.faculty_Id}" ${d.HOD_Id == f.faculty_Id ? "selected" : ""}>
+                    ${f.first_name} ${f.last_name}
+                  </option>`,
+                  )
+                  .join("")}
+              </select>
+            </td>
+            <td><button class="delete" onclick="deleteDepartment(${d.dept_Id})">Delete</button></td>
+          </tr>
+        `,
+          )
+          .join("")}
+      </tbody>`;
+        } catch (e) {
+          console.error(e);
+          table.innerHTML =
+            '<tr><td class="empty">Unable to load departments.</td></tr>';
+        }
       }
-      loadDepartments();
+
+      async function updateHOD(deptId, hodId) {
+        try {
+          const res = await fetch(`/admin/departments/${deptId}/hod`, {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ hod_Id: hodId || null }),
+          });
+          const data = await res.json();
+          showToast(data.message || "HOD updated");
+        } catch (e) {
+          showToast("Unable to update HOD");
+        }
+      }
+
+      async function deleteDepartment(id) {
+        if (
+          !confirm(
+            "Delete this department? This may fail if faculty or students are linked to it.",
+          )
+        )
+          return;
+        try {
+          const res = await fetch(`/admin/departments/${id}`, {
+            method: "DELETE",
+          });
+          const data = await res.json();
+          showToast(data.message || data.error || "Done");
+          loadDepartments();
+        } catch (e) {
+          showToast("Unable to delete department");
+        }
+      }
 
       document
         .getElementById("notif-target")
@@ -751,6 +869,22 @@
         leave: {
           title: "Leave Requests",
           description: "Review and approve faculty leave requests.",
+          placeholder: "",
+        },
+        departments: {
+          title: "Departments",
+          description: "View and manage departments.",
+          placeholder: "Department ID",
+        },
+        enrollments: {
+          title: "Enrollments",
+          description:
+            "Enroll students in courses and manage existing enrollments.",
+          placeholder: "",
+        },
+        teaches: {
+          title: "Teaching Assignments",
+          description: "Assign faculty members to courses and sections.",
           placeholder: "",
         },
       };
@@ -840,6 +974,9 @@
         if (activeTab === "students") loadStudents();
         if (activeTab === "faculty") loadFaculty();
         if (activeTab === "courses") loadCourses();
+        if (activeTab === "departments") loadDepartments();
+        if (activeTab === "enrollments") loadEnrollments();
+        if (activeTab === "teaches") loadTeaches();
         if (activeTab === "leave") loadLeaves();
       }
 
@@ -1037,6 +1174,168 @@
         }
       }
 
+      async function loadEnrollments() {
+        renderForm(
+          [
+            {
+              id: "enroll_student_Id",
+              label: "Student ID",
+              placeholder: "S001",
+            },
+            {
+              id: "enroll_course_Id",
+              label: "Course ID",
+              placeholder: "CS101",
+            },
+            {
+              id: "enroll_semester",
+              label: "Semester",
+              type: "number",
+              placeholder: "4",
+            },
+            {
+              id: "enroll_year",
+              label: "Year",
+              type: "number",
+              placeholder: "2024",
+            },
+          ],
+          "Enroll Student",
+        );
+
+        const table = document.getElementById("dataTable");
+        table.innerHTML =
+          '<tr><td class="empty">Loading enrollments...</td></tr>';
+
+        try {
+          const res = await fetch("/admin/enrollments");
+          const data = await res.json();
+          renderTable(
+            [
+              "Enroll ID",
+              "Student ID",
+              "Student Name",
+              "Course ID",
+              "Course Name",
+              "Semester",
+              "Year",
+            ],
+            data.map((e) => ({
+              cells: [
+                e.enroll_Id,
+                e.student_Id,
+                e.student_name,
+                e.course_Id,
+                e.course_name,
+                e.semester,
+                e.year,
+              ],
+              _id: e.enroll_Id,
+            })),
+            (row) => row._id,
+            "deleteEnrollment",
+          );
+        } catch (e) {
+          console.error(e);
+          table.innerHTML =
+            '<tr><td class="empty">Unable to load enrollments.</td></tr>';
+        }
+      }
+
+      async function deleteEnrollment(id) {
+        if (!confirm("Remove this enrollment?")) return;
+        try {
+          const res = await fetch(`/admin/enrollments/${id}`, {
+            method: "DELETE",
+          });
+          const data = await res.json();
+          showToast(data.message || "Enrollment removed");
+          loadEnrollments();
+        } catch (e) {
+          showToast("Unable to remove enrollment");
+        }
+      }
+
+      async function loadTeaches() {
+        renderForm(
+          [
+            {
+              id: "teach_faculty_Id",
+              label: "Faculty ID",
+              type: "number",
+              placeholder: "1",
+            },
+            { id: "teach_course_Id", label: "Course ID", placeholder: "CS101" },
+            { id: "teach_section", label: "Section", placeholder: "A" },
+            {
+              id: "teach_semester",
+              label: "Semester",
+              type: "number",
+              placeholder: "4",
+            },
+            {
+              id: "teach_year",
+              label: "Year",
+              type: "number",
+              placeholder: "2024",
+            },
+          ],
+          "Assign Faculty",
+        );
+
+        const table = document.getElementById("dataTable");
+        table.innerHTML =
+          '<tr><td class="empty">Loading assignments...</td></tr>';
+
+        try {
+          const res = await fetch("/admin/teaches");
+          const data = await res.json();
+          renderTable(
+            [
+              "Teach ID",
+              "Faculty ID",
+              "Faculty Name",
+              "Course ID",
+              "Course Name",
+              "Section",
+              "Semester",
+              "Year",
+            ],
+            data.map((t) => ({
+              cells: [
+                t.teach_Id,
+                t.faculty_Id,
+                t.faculty_name,
+                t.course_Id,
+                t.course_name,
+                t.section,
+                t.semester,
+                t.year,
+              ],
+              _id: t.teach_Id,
+            })),
+            (row) => row._id,
+            "deleteTeach",
+          );
+        } catch (e) {
+          console.error(e);
+          table.innerHTML =
+            '<tr><td class="empty">Unable to load assignments.</td></tr>';
+        }
+      }
+
+      async function deleteTeach(id) {
+        if (!confirm("Remove this teaching assignment?")) return;
+        try {
+          const res = await fetch(`/admin/teaches/${id}`, { method: "DELETE" });
+          const data = await res.json();
+          showToast(data.message || "Assignment removed");
+          loadTeaches();
+        } catch (e) {
+          showToast("Unable to remove assignment");
+        }
+      }
+
       function renderLeaveTable(data) {
         const table = document.getElementById("dataTable");
         document.getElementById("recordCount").textContent = data.length;
@@ -1105,6 +1404,9 @@
         if (activeTab === "students") return addStudent();
         if (activeTab === "faculty") return addFaculty();
         if (activeTab === "courses") return addCourse();
+        if (activeTab === "enrollments") return addEnrollment();
+        if (activeTab === "departments") return addDepartment();
+        if (activeTab === "teaches") return addTeach();
       }
 
       async function addStudent() {
@@ -1178,6 +1480,84 @@
         }
       }
 
+      async function addDepartment() {
+        const dept_name = document.getElementById("dept_name")?.value?.trim();
+        if (!dept_name) return showToast("Please enter a department name");
+        try {
+          const res = await fetch("/admin/departments", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ dept_name }),
+          });
+          const data = await res.json();
+          showToast(data.message || data.error || "Done");
+          loadDepartments();
+        } catch (e) {
+          showToast("Unable to add department");
+        }
+      }
+
+      async function addEnrollment() {
+        const payload = {
+          student_Id: document.getElementById("enroll_student_Id").value.trim(),
+          course_Id: document.getElementById("enroll_course_Id").value.trim(),
+          semester: document.getElementById("enroll_semester").value,
+          year: document.getElementById("enroll_year").value,
+        };
+        if (
+          !payload.student_Id ||
+          !payload.course_Id ||
+          !payload.semester ||
+          !payload.year
+        )
+          return showToast("Please fill all fields");
+        try {
+          const res = await fetch("/admin/enrollments", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload),
+          });
+          const data = await res.json();
+          showToast(data.message || data.error || "Done");
+          loadEnrollments();
+        } catch (e) {
+          showToast("Unable to enroll student");
+        }
+      }
+
+      async function addTeach() {
+        const payload = {
+          faculty_Id: document.getElementById("teach_faculty_Id").value,
+          course_Id: document.getElementById("teach_course_Id").value.trim(),
+          section: document
+            .getElementById("teach_section")
+            .value.trim()
+            .toUpperCase(),
+          semester: document.getElementById("teach_semester").value,
+          year: document.getElementById("teach_year").value,
+        };
+        if (
+          !payload.faculty_Id ||
+          !payload.course_Id ||
+          !payload.section ||
+          !payload.semester ||
+          !payload.year
+        )
+          return showToast("Please fill all fields");
+        try {
+          const res = await fetch("/admin/teaches", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload),
+          });
+          const data = await res.json();
+          showToast(data.message || data.error || "Done");
+          loadTeaches();
+        } catch (e) {
+          showToast("Unable to create assignment");
+        }
+      }
+
       async function deleteStudent(id) {
         if (!confirm("Delete student?")) return;
         try {
@@ -1240,7 +1620,23 @@
           showToast(e.message || "Unable to update leave request");
         }
       }
-      window.addEventListener("load", () => showTab("students"));
+      window.addEventListener("load", async () => {
+        try {
+          const res = await fetch("/admin/departments");
+          const depts = await res.json();
+          const deptSelect = document.getElementById("notif-dept");
+          depts.forEach((d) => {
+            const opt = document.createElement("option");
+            opt.value = d.dept_Id;
+            opt.textContent = d.dept_name;
+            deptSelect.appendChild(opt);
+          });
+        } catch (e) {
+          console.error("Failed to load departments for notification form", e);
+        }
+
+        showTab("students");
+      });
     </script>
   </body>
 </html>

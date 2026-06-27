@@ -951,6 +951,164 @@ app.get('/admin/departments', async (req, res) => {
   }
 });
 
+// ------------- DEPARTMENTS -------------
+app.get("/admin/departments/full", async (req, res) => {
+  try {
+    const [result] = await db.query(`
+      SELECT d.dept_Id, d.dept_name, d.HOD_Id,
+             CONCAT(f.first_name,' ',f.last_name) AS hod_name
+      FROM Department d
+      LEFT JOIN Faculty f ON d.HOD_Id = f.faculty_Id
+      ORDER BY d.dept_Id
+    `);
+    res.json(result);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post("/admin/departments", async (req, res) => {
+  try {
+    const { dept_name } = req.body;
+    if (!dept_name) return res.status(400).json({ error: "dept_name required" });
+    await db.query("INSERT INTO Department (dept_name) VALUES (?)", [dept_name]);
+    res.json({ message: "Department created successfully" });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.put("/admin/departments/:id/hod", async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { hod_Id } = req.body;
+    await db.query("UPDATE Department SET HOD_Id = ? WHERE dept_Id = ?", [hod_Id || null, id]);
+    res.json({ message: "HOD updated successfully" });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.delete("/admin/departments/:id", async (req, res) => {
+  try {
+    const { id } = req.params;
+    await db.query("DELETE FROM Department WHERE dept_Id = ?", [id]);
+    res.json({ message: "Department deleted successfully" });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ------------- ENROLLMENTS -------------
+app.get("/admin/enrollments", async (req, res) => {
+  try {
+    const [result] = await db.query(`
+      SELECT e.enroll_Id,
+             e.student_Id,
+             CONCAT(s.first_name,' ',s.last_name) AS student_name,
+             e.course_Id,
+             c.course_name,
+             e.semester,
+             e.year
+      FROM Enrollments e
+      JOIN Students s ON e.student_Id = s.student_Id
+      JOIN Courses c ON e.course_Id = c.course_Id
+      ORDER BY e.enroll_Id DESC
+    `);
+    res.json(result);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post("/admin/enrollments", async (req, res) => {
+  try {
+    const { student_Id, course_Id, semester, year } = req.body;
+    if (!student_Id || !course_Id || !semester || !year)
+      return res.status(400).json({ error: "All fields required" });
+
+    // Check duplicate
+    const [existing] = await db.query(
+      "SELECT enroll_Id FROM Enrollments WHERE student_Id=? AND course_Id=?",
+      [student_Id, course_Id]
+    );
+    if (existing.length > 0)
+      return res.status(409).json({ error: "Student already enrolled in this course" });
+
+    await db.query(
+      "INSERT INTO Enrollments (student_Id, course_Id, semester, year) VALUES (?,?,?,?)",
+      [student_Id, course_Id, semester, year]
+    );
+    res.json({ message: "Student enrolled successfully" });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.delete("/admin/enrollments/:id", async (req, res) => {
+  try {
+    await db.query("DELETE FROM Enrollments WHERE enroll_Id=?", [req.params.id]);
+    res.json({ message: "Enrollment removed successfully" });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ------------- TEACHES, Assigning Courses to Faculty -------------
+app.get("/admin/teaches", async (req, res) => {
+  try {
+    const [result] = await db.query(`
+      SELECT t.teach_Id,
+             t.faculty_Id,
+             CONCAT(f.first_name,' ',f.last_name) AS faculty_name,
+             t.course_Id,
+             c.course_name,
+             t.section,
+             t.semester,
+             t.year
+      FROM Teaches t
+      JOIN Faculty f ON t.faculty_Id = f.faculty_Id
+      JOIN Courses c ON t.course_Id = c.course_Id
+      ORDER BY t.teach_Id DESC
+    `);
+    res.json(result);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post("/admin/teaches", async (req, res) => {
+  try {
+    const { faculty_Id, course_Id, section, semester, year } = req.body;
+    if (!faculty_Id || !course_Id || !section || !semester || !year)
+      return res.status(400).json({ error: "All fields required" });
+
+    const [existing] = await db.query(
+      "SELECT teach_Id FROM Teaches WHERE faculty_Id=? AND course_Id=? AND semester=? AND year=?",
+      [faculty_Id, course_Id, semester, year]
+    );
+    if (existing.length > 0)
+      return res.status(409).json({ error: "This faculty already teaches this course in that semester/year" });
+
+    await db.query(
+      "INSERT INTO Teaches (faculty_Id, course_Id, section, semester, year) VALUES (?,?,?,?,?)",
+      [faculty_Id, course_Id, section, semester, year]
+    );
+    res.json({ message: "Teaching assignment created successfully" });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.delete("/admin/teaches/:id", async (req, res) => {
+  try {
+    await db.query("DELETE FROM Teaches WHERE teach_Id=?", [req.params.id]);
+    res.json({ message: "Teaching assignment removed successfully" });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // -- SERVER
 const PORT = process.env.PORT || 5000;
 server.listen(PORT, () =>

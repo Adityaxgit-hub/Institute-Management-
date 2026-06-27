@@ -8,14 +8,14 @@ CREATE TABLE Users(
   password VARCHAR(255) NOT NULL,
   role VARCHAR(10)
 );
--- -- DEPARTMENT TABLE
+-- DEPARTMENT TABLE
 CREATE TABLE Department(
   dept_Id INT PRIMARY KEY AUTO_INCREMENT,
   dept_name VARCHAR(100) NOT NULL,
   HOD_Id INT
 );
 
--- -- FACULTY TABLE
+--FACULTY TABLE
 CREATE TABLE Faculty(
   faculty_Id INT PRIMARY KEY AUTO_INCREMENT,
   first_name VARCHAR(50),
@@ -33,7 +33,7 @@ CREATE TABLE Faculty(
 ALTER TABLE Department
 ADD FOREIGN KEY (HOD_Id) REFERENCES Faculty(faculty_Id);
 
--- -- COURSES TABLE
+-- COURSES TABLE
 CREATE TABLE Courses(
   course_Id VARCHAR(10) PRIMARY KEY,
   course_name VARCHAR(100) NOT NULL,
@@ -42,7 +42,7 @@ CREATE TABLE Courses(
   FOREIGN KEY (dept_Id) REFERENCES Department(dept_Id)
 );
 
--- -- STUDENTS TABLE
+-- STUDENTS TABLE
 CREATE TABLE Students(
   student_Id VARCHAR(15) PRIMARY KEY,
   first_name VARCHAR(50),
@@ -57,7 +57,7 @@ CREATE TABLE Students(
   FOREIGN KEY (user_Id) REFERENCES Users(user_Id)
 );
 
--- -- ENROLLMENTS TABLE
+-- ENROLLMENTS TABLE
 CREATE TABLE Enrollments(
   enroll_Id INT PRIMARY KEY AUTO_INCREMENT,
   student_Id VARCHAR(15),
@@ -68,7 +68,7 @@ CREATE TABLE Enrollments(
   FOREIGN KEY (course_Id) REFERENCES Courses(course_Id)
 );
 
--- -- TEACHES TABLE
+-- TEACHES TABLE
 CREATE TABLE Teaches(
   teach_Id INT PRIMARY KEY AUTO_INCREMENT,
   faculty_Id INT,
@@ -80,7 +80,7 @@ CREATE TABLE Teaches(
   FOREIGN KEY (course_Id) REFERENCES Courses(course_Id)
 );
 
--- -- ATTENDANCE TABLE
+-- ATTENDANCE TABLE
 CREATE TABLE Attendance(
   Attd_Id INT PRIMARY KEY AUTO_INCREMENT,
   student_Id VARCHAR(15),
@@ -91,7 +91,7 @@ CREATE TABLE Attendance(
   FOREIGN KEY (course_Id) REFERENCES Courses(course_Id)
 );
 
--- 🔹 Departments
+--Departments
 INSERT INTO Department (dept_name) VALUES
 ('Computer Science'),
 ('Electrical Engineering'),
@@ -99,7 +99,7 @@ INSERT INTO Department (dept_name) VALUES
 ('Civil Engineering'),
 ('Information Technology');
 
--- 🔹 Faculty Users
+-- Faculty Users
 INSERT INTO Users (username, password, role) VALUES
 ('ravi.kumar', '$2b$10$1mwsNX03ziDjGKiL9UYaUO1B9WYuSy3hvtqglQSfdxfKLIeSzswxK', 'faculty'),
 ('anita.sharma', '$2b$10$YMQ69oaI31rTAMZsVCjJjewG1kjHhC7tT5vcdNYXreqZRi2LQFpkO', 'faculty'),
@@ -107,7 +107,7 @@ INSERT INTO Users (username, password, role) VALUES
 ('neha.verma', '$2b$10$/EkBLucPxklDtMmk.I8VuepDZybf5kgYhJdtppTb7a3FO3d5RNgvm', 'faculty'),
 ('suresh.reddy', '$2b$10$ivD3bPTBLwpT7Td6VDfq8upRE0pvIT.nERGVx5yxplPGfqwsQB6ha', 'faculty');
 
--- 🔹 Faculty Members
+--Faculty Members
 INSERT INTO Faculty (first_name, last_name, email, phone, designation, join_date, dept_Id, user_Id)
 VALUES
 ('Ravi', 'Kumar', 'ravi.kumar@nitp.ac.in', '9000000001', 'Professor', '2015-07-12', 1, 1),
@@ -116,14 +116,14 @@ VALUES
 ('Neha', 'Verma', 'neha.verma@nitp.ac.in', '9000000004', 'HOD', '2013-03-20', 4, 4),
 ('Suresh', 'Reddy', 'suresh.reddy@nitp.ac.in', '9000000005', 'Professor', '2014-11-18', 5, 5);
 
--- 🔹 Assign HODs
+-- Assign HODs
 UPDATE Department SET HOD_Id = 4 WHERE dept_Id = 1;
 UPDATE Department SET HOD_Id = 1 WHERE dept_Id = 2;
 UPDATE Department SET HOD_Id = 2 WHERE dept_Id = 3;
 UPDATE Department SET HOD_Id = 3 WHERE dept_Id = 4;
 UPDATE Department SET HOD_Id = 5 WHERE dept_Id = 5;
 
--- 🔹 Courses
+-- Courses
 INSERT INTO Courses (course_Id, course_name, credits, dept_Id) VALUES
 ('CS101', 'Intro to Programming', 3, 1),
 ('CS102', 'Data Structures', 4, 1),
@@ -132,7 +132,7 @@ INSERT INTO Courses (course_Id, course_name, credits, dept_Id) VALUES
 ('CE101', 'Surveying', 3, 4),
 ('IT101', 'Web Technologies', 3, 5);
 
--- 🔹 Student Users (first 10 only for brevity)
+-- Student Users (first 10 only for brevity)
 INSERT INTO Users (username, password, role) VALUES
 ('abhiinay', '$2b$10$UvDZMZu3xwhBjSu8NzTdKuP6/sDu4GUZL3Nbq5w94sQMrfkRzfFWu', 'student'),
 ('aditya', '$2b$10$2OhABy9d/VH2AcrKI5c2oezF9zT6JXcv/I7/r.9AQEocXD/qtuiEC', 'student'),
@@ -145,7 +145,7 @@ INSERT INTO Users (username, password, role) VALUES
 ('diya', '$2b$10$TlKGgrQee4x7.VxHHZtzb.H/FY/8c/Auz1C.tyb8GoZw8RB/LtOkW', 'student'),
 ('meera', '$2b$10$n82imQ3FaH0d3Gz0YH14We8OBbRm.pav5OCcN3JgGjQI9qtbBW5Bm', 'student');
 
--- 🔹 Students
+-- Students
 INSERT INTO Students (student_Id, first_name, last_name, email, phone, DOB, admission_date, dept_Id, user_Id)
 VALUES
 ('S001', 'Abhiinay', 'Rao', 'abhiinay.rao@institute.edu', '8000000001', '2003-05-10', '2022-08-01', 1, 6),
@@ -159,7 +159,7 @@ VALUES
 ('S009', 'Diya', 'Sharma', 'diya.sharma@institute.edu', '8000000009', '2004-05-18', '2022-08-01', 4, 14),
 ('S010', 'Meera', 'Rao', 'meera.rao@institute.edu', '8000000010', '2004-06-11', '2022-08-01', 5, 15);
 
--- 🔹 Teaches (Faculty teaches Courses)
+-- Teaches (Faculty teaches Courses)
 INSERT INTO Teaches (faculty_Id, course_Id, semester, year, section) VALUES
 (1, 'CS101', 4, 2024, 'A'),
 (1, 'CS102', 4, 2024, 'A'),
@@ -168,7 +168,7 @@ INSERT INTO Teaches (faculty_Id, course_Id, semester, year, section) VALUES
 (4, 'CE101', 4, 2024, 'B'),
 (5, 'IT101', 4, 2024, 'A');
 
--- 🔹 Enrollments
+-- Enrollments
 INSERT INTO Enrollments (student_Id, course_Id, semester, year) VALUES
 ('S001', 'CS101', 4, 2024),
 ('S002', 'CS101', 4, 2024),
@@ -181,7 +181,7 @@ INSERT INTO Enrollments (student_Id, course_Id, semester, year) VALUES
 ('S009', 'CE101', 4, 2024),
 ('S010', 'IT101', 4, 2024);
 
--- 🔹 Attendance
+-- Attendance
 INSERT INTO Attendance (student_Id, course_Id, Attd_Date, Status) VALUES
 ('S001', 'CS101', '2024-08-05', 'P'),
 ('S001', 'CS101', '2024-08-06', 'A'),
