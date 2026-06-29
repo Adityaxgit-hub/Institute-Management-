@@ -317,3 +317,29 @@ CREATE TABLE notification_attachments (
   file_path VARCHAR(500) NOT NULL,
   FOREIGN KEY (notification_id) REFERENCES notifications(id)
 );
+
+CREATE TABLE IF NOT EXISTS password_reset_tokens (
+  id INT PRIMARY KEY AUTO_INCREMENT,
+  user_Id INT NOT NULL,
+  token VARCHAR(255) NOT NULL,
+  expires_at DATETIME NOT NULL,
+  used TINYINT(1) DEFAULT 0,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (user_Id) REFERENCES Users(user_Id)
+);
+
+UPDATE Students 
+SET first_name = 'abbhiinay' 
+WHERE student_Id = 'S001';
+
+DELETE FROM password_reset_tokens;
+
+CREATE TABLE notification_reads (
+  id INT PRIMARY KEY AUTO_INCREMENT,
+  notification_id INT NOT NULL,
+  user_Id INT NOT NULL,
+  read_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE KEY unique_read (notification_id, user_Id),
+  FOREIGN KEY (notification_id) REFERENCES notifications(id),
+  FOREIGN KEY (user_Id) REFERENCES Users(user_Id)
+);

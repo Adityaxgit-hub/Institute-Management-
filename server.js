@@ -14,6 +14,8 @@ const saltRounds = 10;
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
+const nodemailer = require('nodemailer');
+const crypto = require('crypto');
 
 app.use(cors());
 app.use(express.json());
@@ -64,8 +66,7 @@ io.on("connection", (socket) => {
     const allowed = ["student", "faculty", "admin"];
     if (allowed.includes(role)) {
       socket.join(role);
-      socket.join("all");
-      console.log(`Socket ${socket.id} joined room: ${role} + all`);
+      console.log(`Socket ${socket.id} joined room: ${role}`);
     }
   });
 
@@ -1106,6 +1107,131 @@ app.delete("/admin/teaches/:id", async (req, res) => {
     res.json({ message: "Teaching assignment removed successfully" });
   } catch (err) {
     res.status(500).json({ error: err.message });
+  }
+});
+
+// ---------------- FORGOT PASSWORD ----------------
+app.post("/forgot-password", async (req, res) => {
+  const { email } = req.body;
+
+  if (!email) {
+    return res.status(400).json({ message: "Email is required." });
+  }
+
+  try {
+    // 1. Find the user by email in Students or Faculty table
+    const [studentRows] = await db.query(
+      "SELECT u.user_Id, u.username FROM Users u JOIN Students s ON u.user_Id = s.user_Id WHERE s.email = ?",
+      [email]
+    );
+
+    const [facultyRows] = await db.query(
+      "SELECT u.user_Id, u.username FROM Users u JOIN Faculty f ON u.user_Id = f.user_Id WHERE f.email = ?",
+      [email]
+    );
+
+    const user = studentRows[0] || facultyRows[0];
+
+    if (!user) {
+      // Don't reveal whether email exists for security
+      return res.json({ message: "If this email is registered, a reset link has been sent." });
+    }
+
+    // 2. Generate a secure random token
+    const token = crypto.randomBytes(32).toString('hex');
+
+    // 3. Set expiry — 1 hour from now
+    const expiresFormatted = new Date(Date.now() + 60 * 60 * 1000)
+  .toLocaleString('sv-SE', { timeZone: 'Asia/Kolkata' })
+  .replace('T', ' ');
+
+    // 4. Invalidate any existing tokens for this user
+    await db.query(
+      "UPDATE password_reset_tokens SET used = 1 WHERE user_Id = ?",
+      [user.user_Id]
+    );
+
+    // 5. Save the new token
+    await db.query(
+      "INSERT INTO password_reset_tokens (user_Id, token, expires_at) VALUES (?, ?, ?)",
+      [user.user_Id, token, expiresFormatted]
+    );
+
+    // 6. Build the reset link
+    const resetLink = `http://localhost:5000/reset-password.html?token=${token}`;
+
+    // 7. Send the email
+    const transporter = nodemailer.createTransport({
+      service: 'gmail',
+      auth: {
+        user: 'abbhiinaygudimalla@gmail.com', 
+        pass: 'xtny yibv rwza waja', 
+      }
+    });
+
+    await transporter.sendMail({
+      from: '"Institute Portal" <abbhiinaygudimalla@gmail.com>',
+      to: email,
+      subject: 'Password Reset Request',
+      html: `
+        <div style="font-family: Inter, sans-serif; max-width: 500px; margin: auto; padding: 30px; border: 1px solid #dbe3ef; border-radius: 16px;">
+          <h2 style="color: #1d4ed8;">Reset Your Password</h2>
+          <p>Hi <strong>${user.username}</strong>,</p>
+          <p>We received a request to reset your password. Click the button below to proceed:</p>
+          <a href="${resetLink}" style="display:inline-block; margin: 20px 0; padding: 14px 28px; background: linear-gradient(135deg,#1d4ed8,#1e3a8a); color: white; border-radius: 12px; text-decoration: none; font-weight: bold;">
+            Reset Password
+          </a>
+          <p style="color: #64748b; font-size: 0.9rem;">This link expires in <strong>1 hour</strong>. If you didn't request this, ignore this email.</p>
+        </div>
+      `
+    });
+
+    res.json({ message: "If this email is registered, a reset link has been sent." });
+
+  } catch (err) {
+    console.error("Forgot password error:", err);
+    res.status(500).json({ message: "Something went wrong. Please try again." });
+  }
+});
+
+// ---------------- RESET PASSWORD ----------------
+app.post("/reset-password", async (req, res) => {
+  const { token, newPassword } = req.body;
+
+  if (!token || !newPassword) {
+    return res.status(400).json({ message: "Token and new password are required." });
+  }
+
+  try {
+    const [validRows] = await db.query(
+      `SELECT * FROM password_reset_tokens 
+       WHERE token = ? AND used = 0 AND expires_at > NOW()`,
+      [token]
+    );
+
+    if (validRows.length === 0) {
+      return res.status(400).json({ message: "This reset link is invalid or has expired." });
+    }
+
+    const resetRecord = validRows[0];
+
+    const hashedPassword = await bcrypt.hash(newPassword, saltRounds);
+
+    await db.query(
+      "UPDATE Users SET password = ? WHERE user_Id = ?",
+      [hashedPassword, resetRecord.user_Id]
+    );
+
+    await db.query(
+      "UPDATE password_reset_tokens SET used = 1 WHERE id = ?",
+      [resetRecord.id]
+    );
+
+    res.json({ message: "Password updated successfully! You can now log in." });
+
+  } catch (err) {
+    console.error("Reset password error:", err);
+    res.status(500).json({ message: "Something went wrong. Please try again." });
   }
 });
 

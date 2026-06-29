@@ -1,7 +1,12 @@
 const express = require('express');
 const router = express.Router();
 
-//Admin sends a notification
+// Helper: parse deptId safely
+function parseDeptId(val) {
+  return (val === 'null' || val === 'undefined' || !val) ? null : val;
+}
+
+// Admin sends a notification
 router.post('/send', async (req, res) => {
   const { title, message, target, pdf_url, dept_Id } = req.body;
   const db = req.app.get('db');
@@ -23,65 +28,100 @@ router.post('/send', async (req, res) => {
   }
 });
 
+// Unread count — per user, using notification_reads join
 router.get('/unread-count', async (req, res) => {
   const db = req.app.get('db');
-  const role = req.query.role;
-  const userId = req.query.userId;
-  const deptIdInput = req.query.deptId;
-  const deptId = (deptIdInput === 'null' || deptIdInput === 'undefined' || !deptIdInput) ? null : deptIdInput;
+  const { role, userId } = req.query;
+  const deptId = parseDeptId(req.query.deptId);
   const personalTarget = userId ? `user_${userId}` : null;
 
-  if (!role) return res.json({ count: 0 });
+  if (!role || !userId) return res.json({ count: 0 });
 
-  const [rows] = await db.query(
-    `SELECT COUNT(*) AS count 
-     FROM notifications 
-     WHERE is_read = 0 
-     AND (target = ? OR target = 'all' OR target = ?)
-     AND (dept_Id IS NULL OR dept_Id = ?)`,
-    [role, personalTarget, deptId || null]
-  );
-  res.json({ count: rows[0].count });
+  try {
+    const [rows] = await db.query(
+      `SELECT COUNT(*) AS count
+       FROM notifications n
+       WHERE (n.target = ? OR n.target = 'all' OR n.target = ?)
+         AND (n.dept_Id IS NULL OR n.dept_Id = ?)
+         AND NOT EXISTS (
+           SELECT 1 FROM notification_reads nr
+           WHERE nr.notification_id = n.id AND nr.user_Id = ?
+         )`,
+      [role, personalTarget, deptId, userId]
+    );
+    res.json({ count: rows[0].count });
+  } catch (err) {
+    console.error('unread-count error:', err);
+    res.json({ count: 0 });
+  }
 });
 
+// Fetch all notifications for a user, with per-user is_read flag
 router.get('/all', async (req, res) => {
   const db = req.app.get('db');
-  const role = req.query.role;
-  const userId = req.query.userId;
-  const deptIdInput = req.query.deptId;
-  const deptId = (deptIdInput === 'null' || deptIdInput === 'undefined' || !deptIdInput) ? null : deptIdInput;
+  const { role, userId } = req.query;
+  const deptId = parseDeptId(req.query.deptId);
   const personalTarget = userId ? `user_${userId}` : null;
 
-  if (!role) return res.json([]);
+  if (!role || !userId) return res.json([]);
 
-  const [rows] = await db.query(
-    `SELECT * FROM notifications 
-     WHERE (target = ? OR target = 'all' OR target = ?)
-     AND (dept_Id IS NULL OR dept_Id = ?)
-     ORDER BY created_at DESC 
-     LIMIT 20`,
-    [role, personalTarget, deptId || null]
-  );
-  res.json(rows);
+  try {
+    const [rows] = await db.query(
+      `SELECT n.*,
+              IF(nr.id IS NOT NULL, 1, 0) AS is_read
+       FROM notifications n
+       LEFT JOIN notification_reads nr
+         ON nr.notification_id = n.id AND nr.user_Id = ?
+       WHERE (n.target = ? OR n.target = 'all' OR n.target = ?)
+         AND (n.dept_Id IS NULL OR n.dept_Id = ?)
+       ORDER BY n.created_at DESC
+       LIMIT 20`,
+      [userId, role, personalTarget, deptId]
+    );
+    res.json(rows);
+  } catch (err) {
+    console.error('notifications/all error:', err);
+    res.json([]);
+  }
 });
 
+// Mark all visible notifications as read — per user only
 router.post('/mark-read', async (req, res) => {
   const db = req.app.get('db');
-  const role = (req.body?.role) || req.query.role;
-  const userId = (req.body?.userId) || req.query.userId;
-  const deptIdInput = (req.body?.deptId) || req.query.deptId;
-  const deptId = (deptIdInput === 'null' || deptIdInput === 'undefined' || !deptIdInput) ? null : deptIdInput;
+  const role = req.body?.role || req.query.role;
+  const userId = req.body?.userId || req.query.userId;
+  const deptId = parseDeptId(req.body?.deptId || req.query.deptId);
   const personalTarget = userId ? `user_${userId}` : null;
 
-  if (!role) return res.status(400).json({ error: 'role required' });
+  if (!role || !userId) return res.status(400).json({ error: 'role and userId required' });
 
-  await db.query(
-    `UPDATE notifications SET is_read = 1 
-     WHERE (target = ? OR target = 'all' OR target = ?)
-     AND (dept_Id IS NULL OR dept_Id = ?)`,
-    [role, personalTarget, deptId || null]
-  );
-  res.json({ success: true });
+  try {
+    // Find all notification IDs this user can see but hasn't read yet
+    const [notifications] = await db.query(
+      `SELECT n.id
+       FROM notifications n
+       WHERE (n.target = ? OR n.target = 'all' OR n.target = ?)
+         AND (n.dept_Id IS NULL OR n.dept_Id = ?)
+         AND NOT EXISTS (
+           SELECT 1 FROM notification_reads nr
+           WHERE nr.notification_id = n.id AND nr.user_Id = ?
+         )`,
+      [role, personalTarget, deptId, userId]
+    );
+
+    if (notifications.length > 0) {
+      const values = notifications.map(n => [n.id, userId]);
+      await db.query(
+        'INSERT IGNORE INTO notification_reads (notification_id, user_Id) VALUES ?',
+        [values]
+      );
+    }
+
+    res.json({ success: true });
+  } catch (err) {
+    console.error('mark-read error:', err);
+    res.status(500).json({ error: 'Failed to mark as read' });
+  }
 });
 
 module.exports = router;
