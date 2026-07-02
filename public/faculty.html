@@ -941,7 +941,7 @@ ${
       }
 
       function markAllRead() {
-        fetch(
+        apiFetch(
           `/api/notifications/mark-read?role=${localStorage.getItem("role")}&userId=${localStorage.getItem("userId")}&deptId=${localStorage.getItem("deptId")}`,
           { method: "POST" },
         ).then(() => {

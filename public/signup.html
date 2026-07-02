@@ -342,8 +342,6 @@
     </main>
     <script src="/js/api.js"></script>
     <script>
-      const email= document.getElementById("signupEmail").value;
-      
       function showMessage(text, type) {
         const message = document.getElementById("message");
         message.textContent = text;
@@ -354,11 +352,12 @@
         .getElementById("signupForm")
         .addEventListener("submit", async (event) => {
           event.preventDefault();
-          const username = document.getElementById("username").value;
+          const username = document.getElementById("username").value.trim();
           const password = document.getElementById("password").value;
           const role = document.getElementById("role").value;
+          const email = document.getElementById("signupEmail").value.trim();
 
-          if (!username || !password || !role) {
+          if (!username || !password || !role || !email) {
             showMessage("Please complete all required fields.", "error");
             return;
           }

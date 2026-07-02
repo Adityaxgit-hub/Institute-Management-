@@ -24,15 +24,6 @@ app.use(cors({
 }));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
-const csrf = require("csurf");
-const csrfProtection = csrf({ cookie: false });
-app.use(csrfProtection);
-app.use(express.static("public"));
-
-app.get("/csrf-token", csrfProtection, (req, res) => {
-  res.json({ csrfToken: req.csrfToken() });
-});
-
 app.use(
   session({
     secret: process.env.SESSION_SECRET,
@@ -41,6 +32,15 @@ app.use(
     cookie: { secure: false, maxAge: 60 * 60 * 1000 },
   }),
 ); // session configuration
+
+const csrf = require("csurf");
+const csrfProtection = csrf({ cookie: false });
+app.use(csrfProtection);
+app.use(express.static("public"));
+
+app.get("/csrf-token", csrfProtection, (req, res) => {
+  res.json({ csrfToken: req.csrfToken() });
+});
 
 function requireAuth(req, res, next) {
   if (!req.session.user) {
