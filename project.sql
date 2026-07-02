@@ -343,3 +343,6 @@ CREATE TABLE notification_reads (
   FOREIGN KEY (notification_id) REFERENCES notifications(id),
   FOREIGN KEY (user_Id) REFERENCES Users(user_Id)
 );
+
+ALTER TABLE Attendance
+ADD UNIQUE KEY uniq_attendance (student_Id, course_Id, Attd_Date);

@@ -672,7 +672,7 @@
     </main>
 
     <div class="toast" id="toast"></div>
-
+    <script src="/js/api.js"></script>
     <script>
       // Load departments on page load
       async function loadDepartments() {
@@ -755,7 +755,7 @@
 
       async function updateHOD(deptId, hodId) {
         try {
-          const res = await fetch(`/admin/departments/${deptId}/hod`, {
+          const res = await apiFetch(`/admin/departments/${deptId}/hod`, {
             method: "PUT",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ hod_Id: hodId || null }),
@@ -775,7 +775,7 @@
         )
           return;
         try {
-          const res = await fetch(`/admin/departments/${id}`, {
+          const res = await apiFetch(`/admin/departments/${id}`, {
             method: "DELETE",
           });
           const data = await res.json();
@@ -805,7 +805,7 @@
           if (pdfFile) {
             const formData = new FormData();
             formData.append("pdf", pdfFile);
-            const uploadRes = await fetch("/admin/upload-pdf", {
+            const uploadRes = await apiFetch("/admin/upload-pdf", {
               method: "POST",
               body: formData,
             });
@@ -829,7 +829,7 @@
             dept_Id,
           };
 
-          const res = await fetch("/api/notifications/send", {
+          const res = await apiFetch("/api/notifications/send", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify(body),
@@ -1245,7 +1245,7 @@
       async function deleteEnrollment(id) {
         if (!confirm("Remove this enrollment?")) return;
         try {
-          const res = await fetch(`/admin/enrollments/${id}`, {
+          const res = await apiFetch(`/admin/enrollments/${id}`, {
             method: "DELETE",
           });
           const data = await res.json();
@@ -1327,7 +1327,7 @@
       async function deleteTeach(id) {
         if (!confirm("Remove this teaching assignment?")) return;
         try {
-          const res = await fetch(`/admin/teaches/${id}`, { method: "DELETE" });
+          const res = await apiFetch(`/admin/teaches/${id}`, { method: "DELETE" });
           const data = await res.json();
           showToast(data.message || "Assignment removed");
           loadTeaches();
@@ -1420,7 +1420,7 @@
           dept_Id: document.getElementById("dept_Id").value,
         };
         try {
-          const res = await fetch("/admin/students", {
+          const res = await apiFetch("/admin/students", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify(payload),
@@ -1444,7 +1444,7 @@
           dept_Id: document.getElementById("dept_Id_faculty").value,
         };
         try {
-          const res = await fetch("/admin/faculty", {
+          const res = await apiFetch("/admin/faculty", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify(payload),
@@ -1466,7 +1466,7 @@
           dept_Id: document.getElementById("dept_Id_course").value,
         };
         try {
-          const res = await fetch("/admin/courses", {
+          const res = await apiFetch("/admin/courses", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify(payload),
@@ -1484,7 +1484,7 @@
         const dept_name = document.getElementById("dept_name")?.value?.trim();
         if (!dept_name) return showToast("Please enter a department name");
         try {
-          const res = await fetch("/admin/departments", {
+          const res = await apiFetch("/admin/departments", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ dept_name }),
@@ -1512,7 +1512,7 @@
         )
           return showToast("Please fill all fields");
         try {
-          const res = await fetch("/admin/enrollments", {
+          const res = await apiFetch("/admin/enrollments", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify(payload),
@@ -1545,7 +1545,7 @@
         )
           return showToast("Please fill all fields");
         try {
-          const res = await fetch("/admin/teaches", {
+          const res = await apiFetch("/admin/teaches", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify(payload),
@@ -1561,7 +1561,7 @@
       async function deleteStudent(id) {
         if (!confirm("Delete student?")) return;
         try {
-          const res = await fetch("/admin/students/" + id, {
+          const res = await apiFetch("/admin/students/" + id, {
             method: "DELETE",
           });
           const data = await res.json();
@@ -1576,7 +1576,7 @@
       async function deleteFaculty(id) {
         if (!confirm("Delete faculty member?")) return;
         try {
-          const res = await fetch("/admin/faculty/" + id, { method: "DELETE" });
+          const res = await apiFetch("/admin/faculty/" + id, { method: "DELETE" });
           const data = await res.json();
           showToast(data.message || "Faculty deleted");
           loadFaculty();
@@ -1589,7 +1589,7 @@
       async function deleteCourse(id) {
         if (!confirm("Delete course?")) return;
         try {
-          const res = await fetch("/admin/courses/" + id, { method: "DELETE" });
+          const res = await apiFetch("/admin/courses/" + id, { method: "DELETE" });
           const data = await res.json();
           showToast(data.message || "Course deleted");
           loadCourses();
@@ -1610,7 +1610,7 @@
         const url = `/admin/faculty-leaves/${id}/${action}`;
 
         try {
-          const res = await fetch(url, { method: "PUT" });
+          const res = await apiFetch(url, { method: "PUT" });
           const data = await res.json();
           if (!res.ok) throw new Error(data.message || "Update failed");
           showToast(action === "approve" ? "Leave approved" : "Leave rejected");

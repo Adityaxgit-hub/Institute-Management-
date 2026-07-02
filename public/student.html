@@ -733,7 +733,7 @@
         </div>
       </section>
     </main>
-
+    <script src="/js/api.js"></script>
     <script>
       const socket = window.io ? io() : null;
 
@@ -830,7 +830,7 @@
         const deptId = localStorage.getItem("deptId");
         if (!role || !userId) return;
 
-        fetch(
+        apiFetch(
           `/notifications/unread-count?role=${role}&userId=${userId}&deptId=${deptId}`,
         )
           .then((res) => res.json())

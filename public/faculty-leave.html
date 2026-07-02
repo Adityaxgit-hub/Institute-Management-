@@ -203,7 +203,7 @@
         </form>
       </div>
     </div>
-
+    <script src="/js/api.js"></script>
     <script>
       const facultyId = localStorage.getItem("userId");
 
@@ -232,7 +232,7 @@
             return;
           }
 
-          fetch("/faculty/apply-leave", {
+          apiFetch("/faculty/apply-leave", {
             method: "POST",
             headers: {
               "Content-Type": "application/json",

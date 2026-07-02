@@ -1,3 +1,4 @@
+require("dotenv").config();
 const express = require("express");
 const http = require("http");
 const { Server } = require("socket.io");
@@ -11,37 +12,66 @@ const app = express();
 const server = http.createServer(app);
 const io = new Server(server);
 const saltRounds = 10;
-const multer = require('multer');
-const path = require('path');
-const fs = require('fs');
-const nodemailer = require('nodemailer');
-const crypto = require('crypto');
+const multer = require("multer");
+const path = require("path");
+const fs = require("fs");
+const nodemailer = require("nodemailer");
+const crypto = require("crypto");
 
-app.use(cors());
+app.use(cors({
+  origin: process.env.APP_BASE_URL || "http://localhost:5000",
+  credentials: true,
+}));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+const csrf = require("csurf");
+const csrfProtection = csrf({ cookie: false });
+app.use(csrfProtection);
 app.use(express.static("public"));
+
+app.get("/csrf-token", csrfProtection, (req, res) => {
+  res.json({ csrfToken: req.csrfToken() });
+});
 
 app.use(
   session({
-    secret: "InstitutePortal",
+    secret: process.env.SESSION_SECRET,
     resave: false,
     saveUninitialized: false,
     cookie: { secure: false, maxAge: 60 * 60 * 1000 },
   }),
 ); // session configuration
 
+function requireAuth(req, res, next) {
+  if (!req.session.user) {
+    return res.status(401).json({ message: "Please log in." });
+  }
+  next();
+}
+
+function requireRole(...roles) {
+  return (req, res, next) => {
+    if (!req.session.user) {
+      return res.status(401).json({ message: "Please log in." });
+    }
+    if (!roles.includes(req.session.user.role)) {
+      return res.status(403).json({ message: "Not authorized." });
+    }
+    next();
+  };
+}
+
 // ---------------- DATABASE CONNECTION ----------------
 const db = mysql.createPool({
-  host: "localhost",
-  user: "root",
-  password: "Gabbhii@18",
-  database: "institute",
+  host: process.env.DB_HOST,
+  user: process.env.DB_USER,
+  password: process.env.DB_PASSWORD,
+  database: process.env.DB_NAME,
 });
 
 db.getConnection()
   .then(() => console.log("Connected to MySQL Database"))
-  .catch(err => console.error("Database connection failed:", err));
+  .catch((err) => console.error("Database connection failed:", err));
 
 db.query(`
   CREATE TABLE IF NOT EXISTS notifications (
@@ -71,7 +101,7 @@ io.on("connection", (socket) => {
   });
 
   socket.on("join_user_room", (userId) => {
-    if(userId){
+    if (userId) {
       socket.join(`user_${userId}`);
       console.log(`Socket ${socket.id} joined room: user_${userId}`);
     }
@@ -85,27 +115,29 @@ io.on("connection", (socket) => {
 // ---------------- NOTIFICATIONS pdf----------------
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
-    const dir = './public/uploads/pdfs';
+    const dir = "./public/uploads/pdfs";
     if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
     cb(null, dir);
   },
   filename: (req, file, cb) => {
-    cb(null, Date.now() + '-' + file.originalname);
-  }
+    cb(null, Date.now() + "-" + file.originalname);
+  },
 });
-const upload = multer({ storage, fileFilter: (req, file, cb) => {
-  cb(null, file.mimetype === 'application/pdf');
-}});
+const upload = multer({
+  storage,
+  fileFilter: (req, file, cb) => {
+    cb(null, file.mimetype === "application/pdf");
+  },
+});
 
 // ---------------- LOGIN ----------------
-app.post("/login", async (req, res) => {
+app.post("/login",  async (req, res) => {
   const { username, password } = req.body;
 
   try {
-    const [results] = await db.query(
-      "SELECT * FROM Users WHERE username=?",
-      [username]
-    );
+    const [results] = await db.query("SELECT * FROM Users WHERE username=?", [
+      username,
+    ]);
 
     if (results.length === 0) {
       return res.status(401).json({
@@ -114,10 +146,7 @@ app.post("/login", async (req, res) => {
       });
     }
 
-    const match = await bcrypt.compare(
-      password,
-      results[0].password
-    );
+    const match = await bcrypt.compare(password, results[0].password);
 
     if (!match) {
       return res.status(401).json({
@@ -133,7 +162,6 @@ app.post("/login", async (req, res) => {
     };
 
     res.json({ user: results[0] });
-
   } catch (err) {
     console.error("Login failed:", err);
     res.status(500).json({
@@ -144,12 +172,12 @@ app.post("/login", async (req, res) => {
 });
 
 app.post("/signup", async (req, res) => {
-  const { username, password, role } = req.body;
+  const { username, password, role, email } = req.body;
 
-  if (!username || !password || !role) {
+  if (!username || !password || !role || !email) {
     return res.status(400).json({
       success: false,
-      message: "Please provide username, password, and role.",
+      message: "Please provide username, password, role, and email.",
     });
   }
 
@@ -161,39 +189,68 @@ app.post("/signup", async (req, res) => {
   }
 
   try {
-    const hashedPassword = await bcrypt.hash(password, saltRounds);
+    const lookupQuery =
+      role === "student"
+        ? "SELECT student_Id AS recordId, user_Id FROM Students WHERE email = ?"
+        : "SELECT faculty_Id AS recordId, user_Id FROM Faculty WHERE email = ?";
 
-    await db.query(
-      "INSERT INTO Users (username, password, role) VALUES (?, ?, ?)",
-      [username, hashedPassword, role]
-    );
+    const [records] = await db.query(lookupQuery, [email]);
 
-    res.json({
-      success: true,
-      message: "Account created successfully.",
-    });
-
-  } catch (err) {
-    console.error("Signup failed:", err);
-
-    if (err.code === "ER_DUP_ENTRY") {
-      return res.status(409).json({
+    if (records.length === 0) {
+      return res.status(404).json({
         success: false,
-        message: "Username already exists.",
+        message: "No matching record found for this email. Contact admin.",
       });
     }
 
-    res.status(500).json({
-      success: false,
-      message: "Database error creating account.",
-    });
+    if (records[0].user_Id) {
+      return res.status(409).json({
+        success: false,
+        message:
+          "An account already exists for this record. Try logging in or resetting your password.",
+      });
+    }
+
+    const hashedPassword = await bcrypt.hash(password, saltRounds);
+    const [userResult] = await db.query(
+      "INSERT INTO Users (username, password, role) VALUES (?, ?, ?)",
+      [username, hashedPassword, role],
+    );
+    const newUserId = userResult.insertId;
+
+    try {
+      const linkQuery =
+        role === "student"
+          ? "UPDATE Students SET user_Id=? WHERE student_Id=?"
+          : "UPDATE Faculty SET user_Id=? WHERE faculty_Id=?";
+
+      await db.query(linkQuery, [newUserId, records[0].recordId]);
+
+      res.json({ success: true, message: "Account created successfully." });
+    } catch (linkErr) {
+      await db.query("DELETE FROM Users WHERE user_Id=?", [newUserId]);
+      throw linkErr;
+    }
+  } catch (err) {
+    console.error("Signup failed:", err);
+    if (err.code === "ER_DUP_ENTRY") {
+      return res
+        .status(409)
+        .json({ success: false, message: "Username already exists." });
+    }
+    res
+      .status(500)
+      .json({ success: false, message: "Database error creating account." });
   }
 });
 
-
 // ---------------- STUDENT DASHBOARD ----------------
-app.get("/student/:userId", async (req, res) => {
+app.get("/student/:userId", requireRole("student"), csrfProtection, async (req, res) => {
   const userId = req.params.userId;
+
+  if (String(req.session.user.id) !== String(userId)) {
+    return res.status(403).json({ message: "Not authorized." });
+  }
 
   try {
     const studentQuery = `
@@ -225,10 +282,7 @@ app.get("/student/:userId", async (req, res) => {
       WHERE e.student_Id = ?;
     `;
 
-    const [courses] = await db.query(
-      coursesQuery,
-      [student.student_Id]
-    );
+    const [courses] = await db.query(coursesQuery, [student.student_Id]);
 
     const attendanceQuery = `
       SELECT Attd_Date,
@@ -241,17 +295,13 @@ app.get("/student/:userId", async (req, res) => {
       WHERE student_Id = ?;
     `;
 
-    const [attendance] = await db.query(
-      attendanceQuery,
-      [student.student_Id]
-    );
+    const [attendance] = await db.query(attendanceQuery, [student.student_Id]);
 
     res.json({
       student,
       courses,
       attendance,
     });
-
   } catch (err) {
     console.error("Student route error:", err);
     res.status(500).json({
@@ -260,14 +310,18 @@ app.get("/student/:userId", async (req, res) => {
   }
 });
 // ---------------- STUDENT ATTENDANCE BY COURSE ----------------
-app.get("/student/:userId/attendance-summary", async (req, res) => {
+app.get("/student/:userId/attendance-summary", requireRole("student"), csrfProtection, async (req, res) => {
   const { userId } = req.params;
+
+  if (String(req.session.user.id) !== String(userId)) {
+    return res.status(403).json({ message: "Not authorized." });
+  }
 
   try {
     // 1. Find the student
     const [studentResults] = await db.query(
       "SELECT student_Id FROM Students WHERE user_Id = ?",
-      [userId]
+      [userId],
     );
 
     if (studentResults.length === 0) {
@@ -291,7 +345,7 @@ app.get("/student/:userId/attendance-summary", async (req, res) => {
        LEFT JOIN Attendance a ON a.course_Id = c.course_Id AND a.student_Id = e.student_Id
        WHERE e.student_Id = ?
        GROUP BY c.course_Id, c.course_name, f.first_name, f.last_name`,
-      [studentId]
+      [studentId],
     );
 
     // 3. Current-month attendance per course
@@ -305,7 +359,7 @@ app.get("/student/:userId/attendance-summary", async (req, res) => {
          AND MONTH(a.Attd_Date) = MONTH(CURDATE())
          AND YEAR(a.Attd_Date) = YEAR(CURDATE())
        GROUP BY a.course_Id`,
-      [studentId]
+      [studentId],
     );
 
     // 4. Merge monthly data into the overall list, keyed by course_Id
@@ -338,7 +392,6 @@ app.get("/student/:userId/attendance-summary", async (req, res) => {
     });
 
     res.json(result);
-
   } catch (err) {
     console.error("Attendance summary error:", err);
     res.status(500).json({ error: err.message });
@@ -346,8 +399,11 @@ app.get("/student/:userId/attendance-summary", async (req, res) => {
 });
 
 // ---------------- FACULTY DASHBOARD ----------------
-app.get("/faculty/:userId", async (req, res) => {
+app.get("/faculty/:userId", requireRole("faculty"), csrfProtection, async (req, res) => {
   const { userId } = req.params;
+  if (String(req.session.user.id) !== String(userId)) {
+    return res.status(403).json({ message: "Not authorized." });
+  }
   try {
     const [faculty] = await db.query(
       `SELECT f.faculty_Id, f.first_name, f.last_name, f.email, f.phone, f.designation, f.join_date, d.dept_name, f.dept_Id
@@ -379,14 +435,11 @@ app.get("/faculty/:userId", async (req, res) => {
 
 // ADMIN DASHBOARD ROUTES (Students / Faculty / Courses)
 // ------------- STUDENTS -------------
-app.get("/admin/students", async (req, res) => {
+app.get("/admin/students", requireRole("admin"), csrfProtection, async (req, res) => {
   try {
-    const [result] = await db.query(
-      "SELECT * FROM Students"
-    );
+    const [result] = await db.query("SELECT * FROM Students");
 
     res.json(result);
-
   } catch (err) {
     res.status(500).json({
       error: err.message,
@@ -394,30 +447,20 @@ app.get("/admin/students", async (req, res) => {
   }
 });
 
-app.post("/admin/students", async (req, res) => {
+app.post("/admin/students", requireRole("admin"), csrfProtection, async (req, res) => {
   try {
-    const {
-      student_Id,
-      first_name,
-      last_name,
-      email,
-      phone,
-      DOB,
-      dept_Id,
-    } = req.body;
+    const { student_Id, first_name, last_name, email, phone, DOB, dept_Id } =
+      req.body;
 
-    const username =
-      first_name.concat(last_name).toLowerCase();
+    const username = first_name.concat(last_name).toLowerCase();
 
-    const password =
-      username + "123";
+    const password = username + "123";
 
-    const hashedPassword =
-      await bcrypt.hash(password, saltRounds);
+    const hashedPassword = await bcrypt.hash(password, saltRounds);
 
     const [userResult] = await db.query(
       "INSERT INTO Users (username, password, role) VALUES (?, ?, 'student')",
-      [username, hashedPassword]
+      [username, hashedPassword],
     );
 
     const newUserId = userResult.insertId;
@@ -437,25 +480,18 @@ app.post("/admin/students", async (req, res) => {
           DOB,
           dept_Id,
           newUserId,
-        ]
+        ],
       );
 
       res.json({
-        message:
-          "Student and User created successfully!",
+        message: "Student and User created successfully!",
         login: { username, password },
       });
-
     } catch (studentErr) {
-
-      await db.query(
-        "DELETE FROM Users WHERE user_Id=?",
-        [newUserId]
-      );
+      await db.query("DELETE FROM Users WHERE user_Id=?", [newUserId]);
 
       throw studentErr;
     }
-
   } catch (err) {
     console.error(err);
 
@@ -465,13 +501,13 @@ app.post("/admin/students", async (req, res) => {
   }
 });
 
-app.delete("/admin/students/:id", async (req, res) => {
+app.delete("/admin/students/:id", requireRole("admin"), csrfProtection, async (req, res) => {
   try {
     const { id } = req.params;
 
     const [result] = await db.query(
       "SELECT user_Id FROM Students WHERE student_Id=?",
-      [id]
+      [id],
     );
 
     if (result.length === 0) {
@@ -482,21 +518,13 @@ app.delete("/admin/students/:id", async (req, res) => {
 
     const userId = result[0].user_Id;
 
-    await db.query(
-      "DELETE FROM Students WHERE student_Id=?",
-      [id]
-    );
+    await db.query("DELETE FROM Students WHERE student_Id=?", [id]);
 
-    await db.query(
-      "DELETE FROM Users WHERE user_Id=?",
-      [userId]
-    );
+    await db.query("DELETE FROM Users WHERE user_Id=?", [userId]);
 
     res.json({
-      message:
-        "Student and linked User deleted successfully!",
+      message: "Student and linked User deleted successfully!",
     });
-
   } catch (err) {
     res.status(500).json({
       error: err.message,
@@ -504,16 +532,12 @@ app.delete("/admin/students/:id", async (req, res) => {
   }
 });
 
-
 // FACULTY CRUD — auto user linking
-
-app.get("/admin/faculty", async (req, res) => {
+app.get("/admin/faculty", requireRole("admin"), csrfProtection, async (req, res) => {
   try {
-    const [result] =
-      await db.query("SELECT * FROM Faculty");
+    const [result] = await db.query("SELECT * FROM Faculty");
 
     res.json(result);
-
   } catch (err) {
     res.status(500).json({
       error: err.message,
@@ -522,29 +546,20 @@ app.get("/admin/faculty", async (req, res) => {
 });
 
 // ---------------- ADD FACULTY ----------------
-app.post("/admin/faculty", async (req, res) => {
+app.post("/admin/faculty", requireRole("admin"), csrfProtection, async (req, res) => {
   try {
-    const {
-      first_name,
-      last_name,
-      email,
-      phone,
-      designation,
-      dept_Id,
-    } = req.body;
+    const { first_name, last_name, email, phone, designation, dept_Id } =
+      req.body;
 
-    const username =
-      (first_name + last_name).toLowerCase();
+    const username = (first_name + last_name).toLowerCase();
 
-    const password =
-      username + "123";
+    const password = username + "123";
 
-    const hashedPassword =
-      await bcrypt.hash(password, saltRounds);
+    const hashedPassword = await bcrypt.hash(password, saltRounds);
 
     const [userResult] = await db.query(
       "INSERT INTO Users (username, password, role) VALUES (?, ?, 'faculty')",
-      [username, hashedPassword]
+      [username, hashedPassword],
     );
 
     const newUserId = userResult.insertId;
@@ -555,33 +570,18 @@ app.post("/admin/faculty", async (req, res) => {
         (first_name, last_name, email, phone,
          designation, join_date, dept_Id, user_Id)
          VALUES (?, ?, ?, ?, ?, CURDATE(), ?, ?)`,
-        [
-          first_name,
-          last_name,
-          email,
-          phone,
-          designation,
-          dept_Id,
-          newUserId,
-        ]
+        [first_name, last_name, email, phone, designation, dept_Id, newUserId],
       );
 
       res.json({
-        message:
-          "Faculty and User created successfully!",
+        message: "Faculty and User created successfully!",
         login: { username, password },
       });
-
     } catch (facultyErr) {
-
-      await db.query(
-        "DELETE FROM Users WHERE user_Id=?",
-        [newUserId]
-      );
+      await db.query("DELETE FROM Users WHERE user_Id=?", [newUserId]);
 
       throw facultyErr;
     }
-
   } catch (err) {
     console.error(err);
 
@@ -592,13 +592,13 @@ app.post("/admin/faculty", async (req, res) => {
 });
 
 // ---------------- DELETE FACULTY ----------------
-app.delete("/admin/faculty/:id", async (req, res) => {
+app.delete("/admin/faculty/:id", requireRole("admin"), csrfProtection, async (req, res) => {
   try {
     const { id } = req.params;
 
     const [result] = await db.query(
       "SELECT user_Id FROM Faculty WHERE faculty_Id=?",
-      [id]
+      [id],
     );
 
     if (result.length === 0) {
@@ -609,21 +609,13 @@ app.delete("/admin/faculty/:id", async (req, res) => {
 
     const userId = result[0].user_Id;
 
-    await db.query(
-      "DELETE FROM Faculty WHERE faculty_Id=?",
-      [id]
-    );
+    await db.query("DELETE FROM Faculty WHERE faculty_Id=?", [id]);
 
-    await db.query(
-      "DELETE FROM Users WHERE user_Id=?",
-      [userId]
-    );
+    await db.query("DELETE FROM Users WHERE user_Id=?", [userId]);
 
     res.json({
-      message:
-        "Faculty and linked User deleted successfully!",
+      message: "Faculty and linked User deleted successfully!",
     });
-
   } catch (err) {
     res.status(500).json({
       error: err.message,
@@ -632,13 +624,11 @@ app.delete("/admin/faculty/:id", async (req, res) => {
 });
 
 // ------------- COURSES -------------
-app.get("/admin/courses", async (req, res) => {
+app.get("/admin/courses", requireRole("admin"), csrfProtection, async (req, res) => {
   try {
-    const [result] =
-      await db.query("SELECT * FROM Courses");
+    const [result] = await db.query("SELECT * FROM Courses");
 
     res.json(result);
-
   } catch (err) {
     res.status(500).json({
       error: err.message,
@@ -646,31 +636,20 @@ app.get("/admin/courses", async (req, res) => {
   }
 });
 
-app.post("/admin/courses", async (req, res) => {
+app.post("/admin/courses", requireRole("admin"), csrfProtection, async (req, res) => {
   try {
-    const {
-      course_Id,
-      course_name,
-      credits,
-      dept_Id,
-    } = req.body;
+    const { course_Id, course_name, credits, dept_Id } = req.body;
 
     await db.query(
       `INSERT INTO Courses
        (course_Id, course_name, credits, dept_Id)
        VALUES (?, ?, ?, ?)`,
-      [
-        course_Id,
-        course_name,
-        credits,
-        dept_Id,
-      ]
+      [course_Id, course_name, credits, dept_Id],
     );
 
     res.json({
       message: "Course added successfully",
     });
-
   } catch (err) {
     console.error(err);
 
@@ -680,19 +659,15 @@ app.post("/admin/courses", async (req, res) => {
   }
 });
 
-app.delete("/admin/courses/:id", async (req, res) => {
+app.delete("/admin/courses/:id", requireRole("admin"), csrfProtection, async (req, res) => {
   try {
     const { id } = req.params;
 
-    await db.query(
-      "DELETE FROM Courses WHERE course_Id=?",
-      [id]
-    );
+    await db.query("DELETE FROM Courses WHERE course_Id=?", [id]);
 
     res.json({
       message: "Course deleted successfully",
     });
-
   } catch (err) {
     res.status(500).json({
       error: err.message,
@@ -701,7 +676,7 @@ app.delete("/admin/courses/:id", async (req, res) => {
 });
 
 // FACULTY - GET STUDENTS OF A COURSE
-app.get("/faculty/course/:courseId/students", async (req, res) => {
+app.get("/faculty/course/:courseId/students", requireRole("faculty"), csrfProtection, async (req, res) => {
   try {
     const { courseId } = req.params;
 
@@ -713,57 +688,39 @@ app.get("/faculty/course/:courseId/students", async (req, res) => {
        JOIN Students s
        ON e.student_Id = s.student_Id
        WHERE e.course_Id=?`,
-      [courseId]
+      [courseId],
     );
 
     res.json(result);
-
   } catch (err) {
     res.status(500).json(err);
   }
 });
 
 // FACULTY - SAVE ATTENDANCE
-app.post("/faculty/attendance", async (req, res) => {
+app.post("/faculty/attendance", requireRole("faculty"), csrfProtection, async (req, res) => {
   try {
-    const { courseId, date, attendance } =
-      req.body;
+    const { courseId, date, attendance } = req.body;
 
     const [existing] = await db.query(
-      `SELECT *
-       FROM Attendance
-       WHERE course_Id=?
-       AND Attd_Date=?`,
-      [courseId, date]
+      `SELECT student_Id FROM Attendance WHERE course_Id=? AND Attd_Date=?`,
+      [courseId, date],
     );
+    const alreadyMarked = new Set(existing.map((r) => r.student_Id));
 
-    if (existing.length > 0) {
-      return res.json({
-        message:
-          "Attendance already marked for this date.",
-      });
+    const toInsert = attendance.filter((s) => !alreadyMarked.has(s.studentId));
+
+    if (toInsert.length === 0) {
+      return res.json({ message: "Attendance already marked for this date." });
     }
 
-    const sql =
-      `INSERT INTO Attendance
-       (student_Id, course_Id,
-        Attd_Date, Status)
-       VALUES (?, ?, ?, ?)`;
+    const sql = `INSERT INTO Attendance (student_Id, course_Id, Attd_Date, Status) VALUES (?, ?, ?, ?)`;
 
-    for (const student of attendance) {
-      await db.query(sql, [
-        student.studentId,
-        courseId,
-        date,
-        student.status,
-      ]);
+    for (const student of toInsert) {
+      await db.query(sql, [student.studentId, courseId, date, student.status]);
     }
 
-    res.json({
-      message:
-        "Attendance Saved Successfully",
-    });
-
+    res.json({ message: "Attendance Saved Successfully" });
   } catch (err) {
     console.error(err);
 
@@ -771,74 +728,50 @@ app.post("/faculty/attendance", async (req, res) => {
   }
 });
 
-// =====================================================
 // FACULTY - APPLY LEAVE
-// =====================================================
-app.post("/faculty/apply-leave", async (req, res) => {
+app.post("/faculty/apply-leave",requireRole("faculty"), csrfProtection, async (req, res) => {
   try {
-    const {
-      facultyId,
-      fromDate,
-      toDate,
-      reason,
-    } = req.body;
+    const { facultyId, fromDate, toDate, reason } = req.body;
 
-    if (
-      !facultyId ||
-      !fromDate ||
-      !toDate ||
-      !reason
-    ) {
+    if (!facultyId || !fromDate || !toDate || !reason) {
       return res.status(400).json({
-        message:
-          "Missing leave application fields.",
+        message: "Missing leave application fields.",
       });
     }
 
-    const [lookupResult] =
-      await db.query(
-        `SELECT faculty_Id
+    const [lookupResult] = await db.query(
+      `SELECT faculty_Id
          FROM Faculty
          WHERE user_Id=?
          OR faculty_Id=?
          LIMIT 1`,
-        [facultyId, facultyId]
-      );
+      [facultyId, facultyId],
+    );
 
     if (lookupResult.length === 0) {
       return res.status(404).json({
-        message:
-          "Faculty record not found.",
+        message: "Faculty record not found.",
       });
     }
 
-    const realFacultyId =
-      lookupResult[0].faculty_Id;
+    const realFacultyId = lookupResult[0].faculty_Id;
 
     await db.query(
       `INSERT INTO Faculty_Leave
        (faculty_Id, from_date,
         to_date, reason)
        VALUES (?, ?, ?, ?)`,
-      [
-        realFacultyId,
-        fromDate,
-        toDate,
-        reason,
-      ]
+      [realFacultyId, fromDate, toDate, reason],
     );
 
     res.json({
-      message:
-        "Leave Applied Successfully",
+      message: "Leave Applied Successfully",
     });
-
   } catch (err) {
     console.error(err);
 
     res.status(500).json({
-      message:
-        "Failed to Apply Leave.",
+      message: "Failed to Apply Leave.",
     });
   }
 });
@@ -854,7 +787,7 @@ async function notifyFacultyLeaveDecision(leaveId, decision) {
      FROM Faculty_Leave fl
      JOIN Faculty f ON fl.faculty_Id = f.faculty_Id
      WHERE fl.leave_Id = ?`,
-    [leaveId]
+    [leaveId],
   );
 
   if (rows.length === 0) return; // leave record not found, nothing to notify
@@ -868,7 +801,7 @@ async function notifyFacultyLeaveDecision(leaveId, decision) {
   // 2. store it so it shows up in their notification list / unread count
   await db.query(
     "INSERT INTO notifications (title, message, target) VALUES (?, ?, ?)",
-    [title, message, target]
+    [title, message, target],
   );
 
   // 3. push it live to that faculty member's personal socket room
@@ -876,41 +809,39 @@ async function notifyFacultyLeaveDecision(leaveId, decision) {
   io.to(target).emit("new_notification", { title, message, target });
 }
 
-app.put("/admin/faculty-leaves/:id/approve", async (req, res) => {
+app.put("/admin/faculty-leaves/:id/approve", requireRole("admin"), csrfProtection, async (req, res) => {
   try {
     await db.query(
       `UPDATE Faculty_Leave SET status='Approved' WHERE leave_Id=?`,
-      [req.params.id]
+      [req.params.id],
     );
 
     await notifyFacultyLeaveDecision(req.params.id, "Approved");
 
     res.json({ message: "Leave Approved Successfully" });
-
   } catch (err) {
     console.error(err);
     res.status(500).json(err);
   }
 });
 
-app.put("/admin/faculty-leaves/:id/reject", async (req, res) => {
+app.put("/admin/faculty-leaves/:id/reject", requireRole("admin"), csrfProtection, async (req, res) => {
   try {
     await db.query(
       `UPDATE Faculty_Leave SET status='Rejected' WHERE leave_Id=?`,
-      [req.params.id]
+      [req.params.id],
     );
 
     await notifyFacultyLeaveDecision(req.params.id, "Rejected");
 
     res.json({ message: "Leave Rejected Successfully" });
-
   } catch (err) {
     console.error(err);
     res.status(500).json(err);
   }
 });
 
-app.get("/admin/faculty-leaves", async (req, res) => {
+app.get("/admin/faculty-leaves", requireRole("admin"), csrfProtection, async (req, res) => {
   try {
     const [result] = await db.query(`
       SELECT fl.leave_Id,
@@ -929,7 +860,6 @@ app.get("/admin/faculty-leaves", async (req, res) => {
     `);
 
     res.json(result);
-
   } catch (err) {
     console.error(err);
 
@@ -937,15 +867,18 @@ app.get("/admin/faculty-leaves", async (req, res) => {
   }
 });
 
-// -- ADMIN - UPLOAD PDF 
-app.post('/admin/upload-pdf', upload.single('pdf'), (req, res) => {
-  if (!req.file) return res.status(400).json({ error: 'No PDF uploaded' });
-  res.json({ url: `/uploads/pdfs/${req.file.filename}`, name: req.file.originalname });
+// -- ADMIN - UPLOAD PDF
+app.post("/admin/upload-pdf", requireRole("admin"), csrfProtection, upload.single("pdf"), (req, res) => {
+  if (!req.file) return res.status(400).json({ error: "No PDF uploaded" });
+  res.json({
+    url: `/uploads/pdfs/${req.file.filename}`,
+    name: req.file.originalname,
+  });
 });
 
-app.get('/admin/departments', async (req, res) => {
+app.get("/admin/departments", requireRole("admin"), csrfProtection, async (req, res) => {
   try {
-    const [rows] = await db.query('SELECT dept_Id, dept_name FROM Department');
+    const [rows] = await db.query("SELECT dept_Id, dept_name FROM Department");
     res.json(rows);
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -953,7 +886,7 @@ app.get('/admin/departments', async (req, res) => {
 });
 
 // ------------- DEPARTMENTS -------------
-app.get("/admin/departments/full", async (req, res) => {
+app.get("/admin/departments/full", requireRole("admin"), csrfProtection, async (req, res) => {
   try {
     const [result] = await db.query(`
       SELECT d.dept_Id, d.dept_name, d.HOD_Id,
@@ -968,29 +901,35 @@ app.get("/admin/departments/full", async (req, res) => {
   }
 });
 
-app.post("/admin/departments", async (req, res) => {
+app.post("/admin/departments", requireRole("admin"), csrfProtection, async (req, res) => {
   try {
     const { dept_name } = req.body;
-    if (!dept_name) return res.status(400).json({ error: "dept_name required" });
-    await db.query("INSERT INTO Department (dept_name) VALUES (?)", [dept_name]);
+    if (!dept_name)
+      return res.status(400).json({ error: "dept_name required" });
+    await db.query("INSERT INTO Department (dept_name) VALUES (?)", [
+      dept_name,
+    ]);
     res.json({ message: "Department created successfully" });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
 
-app.put("/admin/departments/:id/hod", async (req, res) => {
+app.put("/admin/departments/:id/hod", requireRole("admin"), csrfProtection, async (req, res) => {
   try {
     const { id } = req.params;
     const { hod_Id } = req.body;
-    await db.query("UPDATE Department SET HOD_Id = ? WHERE dept_Id = ?", [hod_Id || null, id]);
+    await db.query("UPDATE Department SET HOD_Id = ? WHERE dept_Id = ?", [
+      hod_Id || null,
+      id,
+    ]);
     res.json({ message: "HOD updated successfully" });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
 
-app.delete("/admin/departments/:id", async (req, res) => {
+app.delete("/admin/departments/:id", requireRole("admin"), csrfProtection, async (req, res) => {
   try {
     const { id } = req.params;
     await db.query("DELETE FROM Department WHERE dept_Id = ?", [id]);
@@ -1001,7 +940,7 @@ app.delete("/admin/departments/:id", async (req, res) => {
 });
 
 // ------------- ENROLLMENTS -------------
-app.get("/admin/enrollments", async (req, res) => {
+app.get("/admin/enrollments", requireRole("admin"), csrfProtection, async (req, res) => {
   try {
     const [result] = await db.query(`
       SELECT e.enroll_Id,
@@ -1022,7 +961,7 @@ app.get("/admin/enrollments", async (req, res) => {
   }
 });
 
-app.post("/admin/enrollments", async (req, res) => {
+app.post("/admin/enrollments", requireRole("admin"), csrfProtection, async (req, res) => {
   try {
     const { student_Id, course_Id, semester, year } = req.body;
     if (!student_Id || !course_Id || !semester || !year)
@@ -1031,14 +970,16 @@ app.post("/admin/enrollments", async (req, res) => {
     // Check duplicate
     const [existing] = await db.query(
       "SELECT enroll_Id FROM Enrollments WHERE student_Id=? AND course_Id=?",
-      [student_Id, course_Id]
+      [student_Id, course_Id],
     );
     if (existing.length > 0)
-      return res.status(409).json({ error: "Student already enrolled in this course" });
+      return res
+        .status(409)
+        .json({ error: "Student already enrolled in this course" });
 
     await db.query(
       "INSERT INTO Enrollments (student_Id, course_Id, semester, year) VALUES (?,?,?,?)",
-      [student_Id, course_Id, semester, year]
+      [student_Id, course_Id, semester, year],
     );
     res.json({ message: "Student enrolled successfully" });
   } catch (err) {
@@ -1046,9 +987,11 @@ app.post("/admin/enrollments", async (req, res) => {
   }
 });
 
-app.delete("/admin/enrollments/:id", async (req, res) => {
+app.delete("/admin/enrollments/:id", requireRole("admin"), csrfProtection, async (req, res) => {
   try {
-    await db.query("DELETE FROM Enrollments WHERE enroll_Id=?", [req.params.id]);
+    await db.query("DELETE FROM Enrollments WHERE enroll_Id=?", [
+      req.params.id,
+    ]);
     res.json({ message: "Enrollment removed successfully" });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -1056,7 +999,7 @@ app.delete("/admin/enrollments/:id", async (req, res) => {
 });
 
 // ------------- TEACHES, Assigning Courses to Faculty -------------
-app.get("/admin/teaches", async (req, res) => {
+app.get("/admin/teaches", requireRole("admin"), csrfProtection, async (req, res) => {
   try {
     const [result] = await db.query(`
       SELECT t.teach_Id,
@@ -1078,7 +1021,7 @@ app.get("/admin/teaches", async (req, res) => {
   }
 });
 
-app.post("/admin/teaches", async (req, res) => {
+app.post("/admin/teaches", requireRole("admin"), csrfProtection, async (req, res) => {
   try {
     const { faculty_Id, course_Id, section, semester, year } = req.body;
     if (!faculty_Id || !course_Id || !section || !semester || !year)
@@ -1086,14 +1029,16 @@ app.post("/admin/teaches", async (req, res) => {
 
     const [existing] = await db.query(
       "SELECT teach_Id FROM Teaches WHERE faculty_Id=? AND course_Id=? AND semester=? AND year=?",
-      [faculty_Id, course_Id, semester, year]
+      [faculty_Id, course_Id, semester, year],
     );
     if (existing.length > 0)
-      return res.status(409).json({ error: "This faculty already teaches this course in that semester/year" });
+      return res.status(409).json({
+        error: "This faculty already teaches this course in that semester/year",
+      });
 
     await db.query(
       "INSERT INTO Teaches (faculty_Id, course_Id, section, semester, year) VALUES (?,?,?,?,?)",
-      [faculty_Id, course_Id, section, semester, year]
+      [faculty_Id, course_Id, section, semester, year],
     );
     res.json({ message: "Teaching assignment created successfully" });
   } catch (err) {
@@ -1101,7 +1046,7 @@ app.post("/admin/teaches", async (req, res) => {
   }
 });
 
-app.delete("/admin/teaches/:id", async (req, res) => {
+app.delete("/admin/teaches/:id", requireRole("admin"), csrfProtection, async (req, res) => {
   try {
     await db.query("DELETE FROM Teaches WHERE teach_Id=?", [req.params.id]);
     res.json({ message: "Teaching assignment removed successfully" });
@@ -1111,7 +1056,7 @@ app.delete("/admin/teaches/:id", async (req, res) => {
 });
 
 // ---------------- FORGOT PASSWORD ----------------
-app.post("/forgot-password", async (req, res) => {
+app.post("/forgot-password", csrfProtection, async (req, res) => {
   const { email } = req.body;
 
   if (!email) {
@@ -1122,57 +1067,60 @@ app.post("/forgot-password", async (req, res) => {
     // 1. Find the user by email in Students or Faculty table
     const [studentRows] = await db.query(
       "SELECT u.user_Id, u.username FROM Users u JOIN Students s ON u.user_Id = s.user_Id WHERE s.email = ?",
-      [email]
+      [email],
     );
 
     const [facultyRows] = await db.query(
       "SELECT u.user_Id, u.username FROM Users u JOIN Faculty f ON u.user_Id = f.user_Id WHERE f.email = ?",
-      [email]
+      [email],
     );
 
     const user = studentRows[0] || facultyRows[0];
 
     if (!user) {
       // Don't reveal whether email exists for security
-      return res.json({ message: "If this email is registered, a reset link has been sent." });
+      return res.json({
+        message: "If this email is registered, a reset link has been sent.",
+      });
     }
 
     // 2. Generate a secure random token
-    const token = crypto.randomBytes(32).toString('hex');
+    const token = crypto.randomBytes(32).toString("hex");
 
     // 3. Set expiry — 1 hour from now
     const expiresFormatted = new Date(Date.now() + 60 * 60 * 1000)
-  .toLocaleString('sv-SE', { timeZone: 'Asia/Kolkata' })
-  .replace('T', ' ');
+      .toLocaleString("sv-SE", { timeZone: "Asia/Kolkata" })
+      .replace("T", " ");
 
     // 4. Invalidate any existing tokens for this user
     await db.query(
       "UPDATE password_reset_tokens SET used = 1 WHERE user_Id = ?",
-      [user.user_Id]
+      [user.user_Id],
     );
 
     // 5. Save the new token
     await db.query(
       "INSERT INTO password_reset_tokens (user_Id, token, expires_at) VALUES (?, ?, ?)",
-      [user.user_Id, token, expiresFormatted]
+      [user.user_Id, token, expiresFormatted],
     );
 
     // 6. Build the reset link
-    const resetLink = `http://localhost:5000/reset-password.html?token=${token}`;
+    const baseUrl =
+      process.env.APP_BASE_URL || `${req.protocol}://${req.get("host")}`;
+    const resetLink = `${baseUrl}/reset-password.html?token=${token}`;
 
     // 7. Send the email
     const transporter = nodemailer.createTransport({
-      service: 'gmail',
+      service: "gmail",
       auth: {
-        user: 'abbhiinaygudimalla@gmail.com', 
-        pass: 'xtny yibv rwza waja', 
-      }
+        user: process.env.GMAIL_USER,
+        pass: process.env.GMAIL_APP_PASSWORD,
+      },
     });
-
     await transporter.sendMail({
-      from: '"Institute Portal" <abbhiinaygudimalla@gmail.com>',
+      from: `"Institute Portal" <${process.env.GMAIL_USER}>`,
       to: email,
-      subject: 'Password Reset Request',
+      subject: "Password Reset Request",
       html: `
         <div style="font-family: Inter, sans-serif; max-width: 500px; margin: auto; padding: 30px; border: 1px solid #dbe3ef; border-radius: 16px;">
           <h2 style="color: #1d4ed8;">Reset Your Password</h2>
@@ -1183,55 +1131,62 @@ app.post("/forgot-password", async (req, res) => {
           </a>
           <p style="color: #64748b; font-size: 0.9rem;">This link expires in <strong>1 hour</strong>. If you didn't request this, ignore this email.</p>
         </div>
-      `
+      `,
     });
 
-    res.json({ message: "If this email is registered, a reset link has been sent." });
-
+    res.json({
+      message: "If this email is registered, a reset link has been sent.",
+    });
   } catch (err) {
     console.error("Forgot password error:", err);
-    res.status(500).json({ message: "Something went wrong. Please try again." });
+    res
+      .status(500)
+      .json({ message: "Something went wrong. Please try again." });
   }
 });
 
 // ---------------- RESET PASSWORD ----------------
-app.post("/reset-password", async (req, res) => {
+app.post("/reset-password", csrfProtection, async (req, res) => {
   const { token, newPassword } = req.body;
 
   if (!token || !newPassword) {
-    return res.status(400).json({ message: "Token and new password are required." });
+    return res
+      .status(400)
+      .json({ message: "Token and new password are required." });
   }
 
   try {
     const [validRows] = await db.query(
       `SELECT * FROM password_reset_tokens 
        WHERE token = ? AND used = 0 AND expires_at > NOW()`,
-      [token]
+      [token],
     );
 
     if (validRows.length === 0) {
-      return res.status(400).json({ message: "This reset link is invalid or has expired." });
+      return res
+        .status(400)
+        .json({ message: "This reset link is invalid or has expired." });
     }
 
     const resetRecord = validRows[0];
 
     const hashedPassword = await bcrypt.hash(newPassword, saltRounds);
 
-    await db.query(
-      "UPDATE Users SET password = ? WHERE user_Id = ?",
-      [hashedPassword, resetRecord.user_Id]
-    );
+    await db.query("UPDATE Users SET password = ? WHERE user_Id = ?", [
+      hashedPassword,
+      resetRecord.user_Id,
+    ]);
 
-    await db.query(
-      "UPDATE password_reset_tokens SET used = 1 WHERE id = ?",
-      [resetRecord.id]
-    );
+    await db.query("UPDATE password_reset_tokens SET used = 1 WHERE id = ?", [
+      resetRecord.id,
+    ]);
 
     res.json({ message: "Password updated successfully! You can now log in." });
-
   } catch (err) {
     console.error("Reset password error:", err);
-    res.status(500).json({ message: "Something went wrong. Please try again." });
+    res
+      .status(500)
+      .json({ message: "Something went wrong. Please try again." });
   }
 });
 
