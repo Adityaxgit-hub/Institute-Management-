@@ -130,6 +130,17 @@ const upload = multer({
   },
 });
 
+const csvUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 5 * 1024 * 1024 }, // 5MB cap
+  fileFilter: (req, file, cb) => {
+    const isCsvExt = path.extname(file.originalname).toLowerCase() === ".csv";
+    cb(null, isCsvExt);
+  },
+});
+
+const { parse: parseCsv } = require("csv-parse/sync");
+
 // ---------------- LOGIN ----------------
 app.post("/login",  async (req, res) => {
   const { username, password } = req.body;
@@ -437,15 +448,232 @@ app.get("/faculty/:userId", requireRole("faculty"), csrfProtection, async (req, 
 // ------------- STUDENTS -------------
 app.get("/admin/students", requireRole("admin"), csrfProtection, async (req, res) => {
   try {
-    const [result] = await db.query("SELECT * FROM Students");
+    const search = (req.query.search || "").trim();
+    const deptId = req.query.dept_Id || "";
+    const page = Math.max(1, parseInt(req.query.page) || 1);
+    const limit = Math.min(100, Math.max(1, parseInt(req.query.limit) || 10));
+    const offset = (page - 1) * limit;
 
-    res.json(result);
-  } catch (err) {
-    res.status(500).json({
-      error: err.message,
+    const where = [];
+    const params = [];
+
+    if (search) {
+      where.push("(first_name LIKE ? OR last_name LIKE ? OR email LIKE ? OR student_Id LIKE ?)");
+      const like = `%${search}%`;
+      params.push(like, like, like, like);
+    }
+    if (deptId) {
+      where.push("dept_Id = ?");
+      params.push(deptId);
+    }
+
+    const whereSql = where.length ? `WHERE ${where.join(" AND ")}` : "";
+
+    const [countRows] = await db.query(`SELECT COUNT(*) AS total FROM Students ${whereSql}`, params);
+    const total = countRows[0].total;
+
+    const [rows] = await db.query(
+      `SELECT * FROM Students ${whereSql} ORDER BY student_Id LIMIT ? OFFSET ?`,
+      [...params, limit, offset],
+    );
+
+    res.json({
+      data: rows,
+      total,
+      page,
+      totalPages: Math.max(1, Math.ceil(total / limit)),
     });
+  } catch (err) {
+    console.error("GET /admin/students error:", err);
+    res.status(500).json({ error: "Unable to load students." });
   }
 });
+
+app.get("/admin/students/export", requireRole("admin"), csrfProtection, async (req, res) => {
+  try {
+    const [rows] = await db.query(
+      `SELECT student_Id, first_name, last_name, email, phone, DOB, admission_date, dept_Id
+       FROM Students ORDER BY student_Id`,
+    );
+
+    const header = "student_Id,first_name,last_name,email,phone,DOB,admission_date,dept_Id";
+
+    const csvEscape = (val) => {
+      if (val === null || val === undefined) return "";
+      const str = String(val);
+      return /[",\n]/.test(str) ? `"${str.replace(/"/g, '""')}"` : str;
+    };
+
+    const lines = rows.map((r) =>
+      [
+        r.student_Id,
+        r.first_name,
+        r.last_name,
+        r.email,
+        r.phone,
+        r.DOB ? new Date(r.DOB).toISOString().split("T")[0] : "",
+        r.admission_date ? new Date(r.admission_date).toISOString().split("T")[0] : "",
+        r.dept_Id,
+      ]
+        .map(csvEscape)
+        .join(","),
+    );
+
+    const csv = [header, ...lines].join("\n");
+
+    res.setHeader("Content-Type", "text/csv");
+    res.setHeader("Content-Disposition", "attachment; filename=students_export.csv");
+    res.send(csv);
+  } catch (err) {
+    console.error("GET /admin/students/export error:", err);
+    res.status(500).json({ error: "Unable to export students." });
+  }
+});
+
+app.post( "/admin/students/import",
+  requireRole("admin"),
+  csrfProtection,
+  csvUpload.single("file"),
+  async (req, res) => {
+    if (!req.file) {
+      return res.status(400).json({ error: "No CSV file uploaded, or file must be .csv" });
+    }
+
+    try {
+      const records = parseCsv(req.file.buffer.toString("utf-8"), {
+        columns: true,
+        skip_empty_lines: true,
+        trim: true,
+      });
+
+      if (records.length === 0) {
+        return res.status(400).json({ error: "CSV file is empty." });
+      }
+      if (records.length > 500) {
+        return res.status(400).json({ error: "Import limited to 500 rows per file." });
+      }
+
+      // Departments that actually exist — for dept_Id / department-name validation
+      const [depts] = await db.query("SELECT dept_Id, dept_name FROM Department");
+      const deptIdSet = new Set(depts.map((d) => String(d.dept_Id)));
+      const deptNameMap = new Map(depts.map((d) => [d.dept_name.trim().toLowerCase(), d.dept_Id]));
+
+      // Existing records — for uniqueness checks against the live DB
+      const [existingStudents] = await db.query("SELECT student_Id, email, phone FROM Students");
+      const existingIds = new Set(existingStudents.map((s) => s.student_Id));
+      const existingEmails = new Set(existingStudents.map((s) => (s.email || "").toLowerCase()));
+      const existingPhones = new Set(existingStudents.map((s) => s.phone));
+
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      const phoneRegex = /^[0-9]{7,15}$/;
+      const nameRegex = /^[A-Za-z][A-Za-z\s'-]{0,49}$/;
+      const dobRegex = /^\d{4}-\d{2}-\d{2}$/;
+
+      const seenIdsInFile = new Set();
+      const seenEmailsInFile = new Set();
+      const seenPhonesInFile = new Set();
+
+      const validRows = [];
+      const errors = [];
+
+      records.forEach((row, idx) => {
+        const rowNum = idx + 2; // +1 for header, +1 for 1-indexing
+        const reasons = [];
+
+        const student_Id = (row.student_Id || "").trim();
+        const first_name = (row.first_name || "").trim();
+        const last_name = (row.last_name || "").trim();
+        const email = (row.email || "").trim();
+        const phone = (row.phone || "").trim();
+        const DOB = (row.DOB || "").trim();
+        const deptInput = (row.dept_Id || row.department || "").trim();
+
+        if (!student_Id) reasons.push("Missing student_Id (roll number)");
+        else if (student_Id.length > 15) reasons.push("student_Id exceeds 15 characters");
+        else if (existingIds.has(student_Id)) reasons.push("student_Id already exists in system");
+        else if (seenIdsInFile.has(student_Id)) reasons.push("Duplicate student_Id within this file");
+
+        if (!first_name || !nameRegex.test(first_name)) reasons.push("Invalid or missing first_name");
+        if (!last_name || !nameRegex.test(last_name)) reasons.push("Invalid or missing last_name");
+
+        if (!email || !emailRegex.test(email)) reasons.push("Invalid or missing email");
+        else if (existingEmails.has(email.toLowerCase())) reasons.push("Email already exists in system");
+        else if (seenEmailsInFile.has(email.toLowerCase())) reasons.push("Duplicate email within this file");
+
+        if (!phone || !phoneRegex.test(phone)) reasons.push("Invalid or missing phone (7-15 digits)");
+        else if (existingPhones.has(phone)) reasons.push("Phone already exists in system");
+        else if (seenPhonesInFile.has(phone)) reasons.push("Duplicate phone within this file");
+
+        if (!DOB || !dobRegex.test(DOB)) reasons.push("Invalid or missing DOB (expected YYYY-MM-DD)");
+        else if (new Date(DOB) > new Date()) reasons.push("DOB cannot be in the future");
+
+        let resolvedDeptId = null;
+        if (!deptInput) {
+          reasons.push("Missing dept_Id/department");
+        } else if (deptIdSet.has(deptInput)) {
+          resolvedDeptId = deptInput;
+        } else if (deptNameMap.has(deptInput.toLowerCase())) {
+          resolvedDeptId = deptNameMap.get(deptInput.toLowerCase());
+        } else {
+          reasons.push(`Department "${deptInput}" does not exist`);
+        }
+
+        if (reasons.length > 0) {
+          errors.push({ row: rowNum, student_Id: student_Id || "(blank)", reasons });
+          return;
+        }
+
+        seenIdsInFile.add(student_Id);
+        seenEmailsInFile.add(email.toLowerCase());
+        seenPhonesInFile.add(phone);
+
+        validRows.push({ student_Id, first_name, last_name, email, phone, DOB, dept_Id: resolvedDeptId });
+      });
+
+      const created = [];
+
+      for (const s of validRows) {
+        const username = (s.first_name + s.last_name).toLowerCase().replace(/[^a-z0-9]/g, "");
+        const password = crypto.randomBytes(6).toString("hex");
+        const hashedPassword = await bcrypt.hash(password, saltRounds);
+
+        try {
+          const [userResult] = await db.query(
+            "INSERT INTO Users (username, password, role) VALUES (?, ?, 'student')",
+            [username, hashedPassword],
+          );
+          const newUserId = userResult.insertId;
+
+          try {
+            await db.query(
+              `INSERT INTO Students
+              (student_Id, first_name, last_name, email, phone, DOB, admission_date, dept_Id, user_Id)
+               VALUES (?, ?, ?, ?, ?, ?, CURDATE(), ?, ?)`,
+              [s.student_Id, s.first_name, s.last_name, s.email, s.phone, s.DOB, s.dept_Id, newUserId],
+            );
+            created.push({ student_Id: s.student_Id, username, password });
+          } catch (innerErr) {
+            await db.query("DELETE FROM Users WHERE user_Id=?", [newUserId]);
+            errors.push({ row: null, student_Id: s.student_Id, reasons: ["Database error inserting record"] });
+          }
+        } catch (userErr) {
+          errors.push({ row: null, student_Id: s.student_Id, reasons: ["Failed to create login account (username may collide)"] });
+        }
+      }
+
+      res.json({
+        totalRows: records.length,
+        insertedCount: created.length,
+        failedCount: errors.length,
+        created,
+        errors,
+      });
+    } catch (err) {
+      console.error("POST /admin/students/import error:", err);
+      res.status(500).json({ error: "Unable to process CSV file. Check the file format." });
+    }
+  },
+);
 
 app.post("/admin/students", requireRole("admin"), csrfProtection, async (req, res) => {
   try {
@@ -532,16 +760,70 @@ app.delete("/admin/students/:id", requireRole("admin"), csrfProtection, async (r
   }
 });
 
+app.put("/admin/students/:id", requireRole("admin"), csrfProtection, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { first_name, last_name, email, phone, DOB, dept_Id } = req.body;
+
+    const [result] = await db.query(
+      `UPDATE Students
+       SET first_name=?, last_name=?, email=?, phone=?, DOB=?, dept_Id=?
+       WHERE student_Id=?`,
+      [first_name, last_name, email, phone, DOB || null, dept_Id, id],
+    );
+
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ error: "Student not found" });
+    }
+
+    res.json({ message: "Student updated successfully" });
+  } catch (err) {
+    console.error("PUT /admin/students error:", err);
+    res.status(500).json({ error: "Unable to update student." });
+  }
+});
+
 // FACULTY CRUD — auto user linking
 app.get("/admin/faculty", requireRole("admin"), csrfProtection, async (req, res) => {
   try {
-    const [result] = await db.query("SELECT * FROM Faculty");
+    const search = (req.query.search || "").trim();
+    const deptId = req.query.dept_Id || "";
+    const page = Math.max(1, parseInt(req.query.page) || 1);
+    const limit = Math.min(100, Math.max(1, parseInt(req.query.limit) || 10));
+    const offset = (page - 1) * limit;
 
-    res.json(result);
-  } catch (err) {
-    res.status(500).json({
-      error: err.message,
+    const where = [];
+    const params = [];
+
+    if (search) {
+      where.push("(first_name LIKE ? OR last_name LIKE ? OR email LIKE ? OR designation LIKE ?)");
+      const like = `%${search}%`;
+      params.push(like, like, like, like);
+    }
+    if (deptId) {
+      where.push("dept_Id = ?");
+      params.push(deptId);
+    }
+
+    const whereSql = where.length ? `WHERE ${where.join(" AND ")}` : "";
+
+    const [countRows] = await db.query(`SELECT COUNT(*) AS total FROM Faculty ${whereSql}`, params);
+    const total = countRows[0].total;
+
+    const [rows] = await db.query(
+      `SELECT * FROM Faculty ${whereSql} ORDER BY faculty_Id LIMIT ? OFFSET ?`,
+      [...params, limit, offset],
+    );
+
+    res.json({
+      data: rows,
+      total,
+      page,
+      totalPages: Math.max(1, Math.ceil(total / limit)),
     });
+  } catch (err) {
+    console.error("GET /admin/faculty error:", err);
+    res.status(500).json({ error: "Unable to load faculty." });
   }
 });
 
@@ -623,16 +905,70 @@ app.delete("/admin/faculty/:id", requireRole("admin"), csrfProtection, async (re
   }
 });
 
+app.put("/admin/faculty/:id", requireRole("admin"), csrfProtection, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { first_name, last_name, email, phone, designation, dept_Id } = req.body;
+
+    const [result] = await db.query(
+      `UPDATE Faculty
+       SET first_name=?, last_name=?, email=?, phone=?, designation=?, dept_Id=?
+       WHERE faculty_Id=?`,
+      [first_name, last_name, email, phone, designation, dept_Id, id],
+    );
+
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ error: "Faculty not found" });
+    }
+
+    res.json({ message: "Faculty updated successfully" });
+  } catch (err) {
+    console.error("PUT /admin/faculty error:", err);
+    res.status(500).json({ error: "Unable to update faculty." });
+  }
+});
+
 // ------------- COURSES -------------
 app.get("/admin/courses", requireRole("admin"), csrfProtection, async (req, res) => {
   try {
-    const [result] = await db.query("SELECT * FROM Courses");
+    const search = (req.query.search || "").trim();
+    const deptId = req.query.dept_Id || "";
+    const page = Math.max(1, parseInt(req.query.page) || 1);
+    const limit = Math.min(100, Math.max(1, parseInt(req.query.limit) || 10));
+    const offset = (page - 1) * limit;
 
-    res.json(result);
-  } catch (err) {
-    res.status(500).json({
-      error: err.message,
+    const where = [];
+    const params = [];
+
+    if (search) {
+      where.push("(course_name LIKE ? OR course_Id LIKE ?)");
+      const like = `%${search}%`;
+      params.push(like, like);
+    }
+    if (deptId) {
+      where.push("dept_Id = ?");
+      params.push(deptId);
+    }
+
+    const whereSql = where.length ? `WHERE ${where.join(" AND ")}` : "";
+
+    const [countRows] = await db.query(`SELECT COUNT(*) AS total FROM Courses ${whereSql}`, params);
+    const total = countRows[0].total;
+
+    const [rows] = await db.query(
+      `SELECT * FROM Courses ${whereSql} ORDER BY course_Id LIMIT ? OFFSET ?`,
+      [...params, limit, offset],
+    );
+
+    res.json({
+      data: rows,
+      total,
+      page,
+      totalPages: Math.max(1, Math.ceil(total / limit)),
     });
+  } catch (err) {
+    console.error("GET /admin/courses error:", err);
+    res.status(500).json({ error: "Unable to load courses." });
   }
 });
 
@@ -672,6 +1008,29 @@ app.delete("/admin/courses/:id", requireRole("admin"), csrfProtection, async (re
     res.status(500).json({
       error: err.message,
     });
+  }
+});
+
+app.put("/admin/courses/:id", requireRole("admin"), csrfProtection, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { course_name, credits, dept_Id } = req.body;
+
+    const [result] = await db.query(
+      `UPDATE Courses
+       SET course_name=?, credits=?, dept_Id=?
+       WHERE course_Id=?`,
+      [course_name, credits, dept_Id, id],
+    );
+
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ error: "Course not found" });
+    }
+
+    res.json({ message: "Course updated successfully" });
+  } catch (err) {
+    console.error("PUT /admin/courses error:", err);
+    res.status(500).json({ error: "Unable to update course." });
   }
 });
 

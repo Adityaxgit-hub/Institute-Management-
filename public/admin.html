@@ -251,6 +251,26 @@
         align-items: end;
       }
 
+      .csv-btn {
+        height: 42px;
+        padding: 0 16px;
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        background: white;
+        color: var(--text);
+        font: inherit;
+        font-weight: 700;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        white-space: nowrap;
+      }
+
+      .csv-btn:hover {
+        border-color: var(--primary);
+        color: var(--primary);
+        box-shadow: 0 10px 22px rgba(29, 78, 216, 0.12);
+      }
+
       .add {
         height: 44px;
         padding: 0 20px;
@@ -271,6 +291,79 @@
 
       .table-wrap {
         overflow-x: auto;
+      }
+
+      .filter-bar {
+        display: flex;
+        gap: 12px;
+        align-items: center;
+        padding: 16px 24px;
+        border-bottom: 1px solid var(--border);
+        background: var(--surface-soft);
+        flex-wrap: wrap;
+      }
+
+      .filter-bar input,
+      .filter-bar select {
+        height: 42px;
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        padding: 0 14px;
+        font: inherit;
+        background: white;
+        outline: none;
+      }
+
+      .filter-bar input {
+        flex: 1;
+        min-width: 200px;
+      }
+
+      .filter-bar select {
+        min-width: 160px;
+      }
+
+      .pagination-bar {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        padding: 16px 24px;
+        border-top: 1px solid var(--border);
+        background: var(--surface-soft);
+        flex-wrap: wrap;
+      }
+
+      .pagination-bar .page-info {
+        color: var(--muted);
+        font-size: 0.88rem;
+      }
+
+      .pagination-bar .page-controls {
+        display: flex;
+        gap: 8px;
+      }
+
+      .pagination-bar button {
+        height: 36px;
+        padding: 0 14px;
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        background: white;
+        font: inherit;
+        font-weight: 700;
+        cursor: pointer;
+        transition: all 0.2s ease;
+      }
+
+      .pagination-bar button:hover:not(:disabled) {
+        border-color: var(--primary);
+        color: var(--primary);
+      }
+
+      .pagination-bar button:disabled {
+        opacity: 0.4;
+        cursor: not-allowed;
       }
 
       table {
@@ -299,6 +392,25 @@
 
       tr:hover td {
         background: #fbfdff;
+      }
+      .edit {
+        height: 36px;
+        padding: 0 14px;
+        border: 1px solid #bfdbfe;
+        border-radius: 10px;
+        background: #eff6ff;
+        color: var(--primary);
+        font: inherit;
+        font-weight: 800;
+        cursor: pointer;
+        margin-right: 6px;
+        transition: all 0.2s ease;
+      }
+
+      .edit:hover {
+        background: var(--primary);
+        color: white;
+        border-color: var(--primary);
       }
 
       .delete {
@@ -660,24 +772,85 @@
             <h3 id="sectionTitle">Students</h3>
             <p id="sectionDescription">View and manage registered students.</p>
           </div>
-          <div class="record-count" id="recordCount">0</div>
+          <div style="display:flex; align-items:center; gap:10px;">
+            <div id="csvControls" style="display:none; gap:10px;">
+              <button class="csv-btn" onclick="exportStudentsCsv()">⬇ Export CSV</button>
+              <button class="csv-btn" onclick="document.getElementById('csvFileInput').click()">⬆ Import CSV</button>
+              <input
+                type="file"
+                id="csvFileInput"
+                accept=".csv"
+                style="display:none;"
+                onchange="importStudentsCsv(event)"
+              />
+            </div>
+            <div class="record-count" id="recordCount">0</div>
+          </div>
         </div>
 
         <div class="form-grid" id="formContainer"></div>
 
+        <div class="filter-bar" id="filterBar" style="display:none;">
+          <input
+            type="text"
+            id="searchInput"
+            placeholder="Search..."
+            oninput="handleSearchInput()"
+          />
+          <select id="deptFilter" onchange="handleFilterChange()">
+            <option value="">All Departments</option>
+          </select>
+        </div>
+
         <div class="table-wrap">
           <table id="dataTable"></table>
         </div>
+
+        <div class="pagination-bar" id="paginationBar" style="display:none;">
+          <span class="page-info" id="pageInfo">Page 1 of 1</span>
+          <div class="page-controls">
+            <button id="prevPageBtn" onclick="goToPage(tableState.page - 1)">← Prev</button>
+            <button id="nextPageBtn" onclick="goToPage(tableState.page + 1)">Next →</button>
+          </div>
+        </div>
       </section>
     </main>
+    <div
+      id="editModal"
+      style="display:none; position:fixed; inset:0; background:rgba(15,23,42,0.5); z-index:999; align-items:center; justify-content:center;"
+    >
+      <div
+        style="background:white; border-radius:20px; padding:32px; width:min(480px,90vw); box-shadow:0 24px 60px rgba(15,23,42,0.2); max-height:85vh; overflow-y:auto;"
+      >
+        <h3 id="editModalTitle" style="margin:0 0 20px; font-size:1.3rem; color:#0f172a;">
+          Edit Record
+        </h3>
+        <div id="editModalFields"></div>
+        <div style="display:flex; gap:12px; margin-top:24px;">
+          <button
+            onclick="submitEdit()"
+            style="flex:1; height:46px; border:none; border-radius:12px; background:linear-gradient(135deg,#1d4ed8,#1e3a8a); color:white; font:inherit; font-weight:700; cursor:pointer;"
+          >
+            Save Changes
+          </button>
+          <button
+            onclick="closeEditModal()"
+            style="height:46px; padding:0 18px; border:1px solid #dbe3ef; border-radius:12px; background:white; font:inherit; cursor:pointer;"
+          >
+            Cancel
+          </button>
+        </div>
+      </div>
+    </div>
 
     <div class="toast" id="toast"></div>
     <script src="/js/api.js"></script>
     <script>
       // Load departments on page load
       async function loadDepartments() {
-        const facRes = await fetch("/admin/faculty");
-        const facData = await facRes.json();
+        hideFilterBar();
+        const facRes = await fetch("/admin/faculty?limit=1000");
+        const { data: facData } = await facRes.json();
 
         renderForm(
           [
@@ -889,7 +1062,252 @@
         },
       };
 
+      let studentsCache = [];
+      let facultyCache = [];
+      let coursesCache = [];
+      let currentEditType = null;
+      let currentEditId = null;
+
+      const editFieldConfig = {
+        student: [
+          { id: "edit_first_name", key: "first_name", label: "First Name" },
+          { id: "edit_last_name", key: "last_name", label: "Last Name" },
+          { id: "edit_email", key: "email", label: "Email", type: "email" },
+          { id: "edit_phone", key: "phone", label: "Phone" },
+          { id: "edit_DOB", key: "DOB", label: "Date of Birth", type: "date" },
+          { id: "edit_dept_Id", key: "dept_Id", label: "Department ID" },
+        ],
+        faculty: [
+          { id: "edit_first_name", key: "first_name", label: "First Name" },
+          { id: "edit_last_name", key: "last_name", label: "Last Name" },
+          { id: "edit_email", key: "email", label: "Email", type: "email" },
+          { id: "edit_phone", key: "phone", label: "Phone" },
+          { id: "edit_designation", key: "designation", label: "Designation" },
+          { id: "edit_dept_Id", key: "dept_Id", label: "Department ID" },
+        ],
+        course: [
+          { id: "edit_course_name", key: "course_name", label: "Course Name" },
+          { id: "edit_credits", key: "credits", label: "Credits", type: "number" },
+          { id: "edit_dept_Id", key: "dept_Id", label: "Department ID" },
+        ],
+      };
+
+      function openEditModal(type, id) {
+        const cacheMap = { student: studentsCache, faculty: facultyCache, course: coursesCache };
+        const idKeyMap = { student: "student_Id", faculty: "faculty_Id", course: "course_Id" };
+        const record = cacheMap[type].find(
+          (r) => String(r[idKeyMap[type]]) === String(id),
+        );
+        if (!record) return showToast("Record not found");
+
+        currentEditType = type;
+        currentEditId = id;
+
+        const fields = editFieldConfig[type];
+        document.getElementById("editModalTitle").textContent =
+          `Edit ${type.charAt(0).toUpperCase() + type.slice(1)}`;
+        document.getElementById("editModalFields").innerHTML = fields
+          .map(
+            (f) => `
+            <div style="margin-bottom:14px;">
+              <label style="display:block; margin-bottom:6px; font-weight:700; font-size:0.82rem; color:#334155; text-transform:uppercase; letter-spacing:0.06em;">${f.label}</label>
+              <input id="${f.id}" type="${f.type || "text"}" value="${record[f.key] ?? ""}"
+                style="width:100%; height:44px; border:1px solid var(--border); border-radius:12px; padding:0 14px; font:inherit; box-sizing:border-box;" />
+            </div>`,
+          )
+          .join("");
+
+        document.getElementById("editModal").style.display = "flex";
+      }
+
+      function closeEditModal() {
+        document.getElementById("editModal").style.display = "none";
+        currentEditType = null;
+        currentEditId = null;
+      }
+
+      async function submitEdit() {
+        const type = currentEditType;
+        const id = currentEditId;
+        const fields = editFieldConfig[type];
+        const payload = {};
+        fields.forEach((f) => {
+          payload[f.key] = document.getElementById(f.id).value;
+        });
+
+        const urlMap = {
+          student: `/admin/students/${id}`,
+          faculty: `/admin/faculty/${id}`,
+          course: `/admin/courses/${id}`,
+        };
+
+        try {
+          const res = await apiFetch(urlMap[type], {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload),
+          });
+          const data = await res.json();
+          showToast(data.message || data.error || "Updated");
+          closeEditModal();
+          if (type === "student") loadStudents();
+          if (type === "faculty") loadFaculty();
+          if (type === "course") loadCourses();
+        } catch (e) {
+          showToast("Unable to save changes");
+        }
+      }
+
       let activeTab = "students";
+
+      function exportStudentsCsv() {
+        window.open("/admin/students/export", "_blank");
+      }
+
+      async function importStudentsCsv(event) {
+        const file = event.target.files[0];
+        if (!file) return;
+        event.target.value = "";
+
+        const formData = new FormData();
+        formData.append("file", file);
+
+        showToast("Uploading and validating CSV...");
+
+        try {
+          const res = await apiFetch("/admin/students/import", {
+            method: "POST",
+            body: formData,
+          });
+          const result = await res.json();
+
+          if (!res.ok) {
+            showToast(result.error || "Import failed");
+            return;
+          }
+
+          showImportResults(result);
+          loadStudents();
+        } catch (e) {
+          console.error(e);
+          showToast("Unable to import CSV");
+        }
+      }
+
+      function showImportResults(result) {
+        const lines = [
+          `Imported: ${result.insertedCount} / ${result.totalRows}`,
+          result.failedCount > 0
+            ? `Failed: ${result.failedCount} (see below)`
+            : "All rows imported successfully.",
+        ];
+
+        let details = "";
+        if (result.errors && result.errors.length > 0) {
+          details = result.errors
+            .map((e) => `Row ${e.row ?? "-"} (${e.student_Id}): ${e.reasons.join("; ")}`)
+            .join("\n");
+        }
+
+        let credentials = "";
+        if (result.created && result.created.length > 0) {
+          credentials = result.created
+            .map((c) => `${c.student_Id}: ${c.username} / ${c.password}`)
+            .join("\n");
+        }
+
+        alert(
+          lines.join("\n") +
+            (credentials ? "\n\nLogin credentials (save these — shown once):\n" + credentials : "") +
+            (details ? "\n\nErrors:\n" + details : ""),
+        );
+      }
+      let tableState = { search: "", dept_Id: "", page: 1, limit: 10, totalPages: 1 };
+      let searchDebounceTimer = null;
+      let departmentsForFilter = [];
+
+      async function loadDepartmentsForFilter() {
+        if (departmentsForFilter.length) return departmentsForFilter;
+        try {
+          const res = await fetch("/admin/departments");
+          departmentsForFilter = await res.json();
+        } catch (e) {
+          departmentsForFilter = [];
+        }
+        return departmentsForFilter;
+      }
+
+      async function showFilterBar(withDeptFilter) {
+        const bar = document.getElementById("filterBar");
+        const deptSelect = document.getElementById("deptFilter");
+        bar.style.display = "flex";
+        document.getElementById("searchInput").value = tableState.search;
+
+        if (withDeptFilter) {
+          deptSelect.style.display = "block";
+          const depts = await loadDepartmentsForFilter();
+          deptSelect.innerHTML =
+            '<option value="">All Departments</option>' +
+            depts
+              .map(
+                (d) =>
+                  `<option value="${d.dept_Id}" ${String(d.dept_Id) === String(tableState.dept_Id) ? "selected" : ""}>${d.dept_name}</option>`,
+              )
+              .join("");
+        } else {
+          deptSelect.style.display = "none";
+        }
+      }
+
+      function hideFilterBar() {
+        document.getElementById("filterBar").style.display = "none";
+        document.getElementById("paginationBar").style.display = "none";
+      }
+
+      function resetTableState() {
+        tableState = { search: "", dept_Id: "", page: 1, limit: 10, totalPages: 1 };
+      }
+
+      function handleSearchInput() {
+        clearTimeout(searchDebounceTimer);
+        searchDebounceTimer = setTimeout(() => {
+          tableState.search = document.getElementById("searchInput").value.trim();
+          tableState.page = 1;
+          loadCurrentTab();
+        }, 400);
+      }
+
+      function handleFilterChange() {
+        tableState.dept_Id = document.getElementById("deptFilter").value;
+        tableState.page = 1;
+        loadCurrentTab();
+      }
+
+      function goToPage(page) {
+        if (page < 1 || page > tableState.totalPages) return;
+        tableState.page = page;
+        loadCurrentTab();
+      }
+
+      function renderPagination(total, page, totalPages) {
+        tableState.page = page;
+        tableState.totalPages = totalPages;
+        const bar = document.getElementById("paginationBar");
+        bar.style.display = "flex";
+        document.getElementById("pageInfo").textContent =
+          `Page ${page} of ${totalPages} · ${total} record${total === 1 ? "" : "s"}`;
+        document.getElementById("prevPageBtn").disabled = page <= 1;
+        document.getElementById("nextPageBtn").disabled = page >= totalPages;
+      }
+
+      function buildQueryString() {
+        const params = new URLSearchParams();
+        if (tableState.search) params.set("search", tableState.search);
+        if (tableState.dept_Id) params.set("dept_Id", tableState.dept_Id);
+        params.set("page", tableState.page);
+        params.set("limit", tableState.limit);
+        return params.toString();
+      }
 
       function logout() {
         localStorage.clear();
@@ -905,6 +1323,7 @@
 
       function showTab(tab) {
         activeTab = tab;
+        resetTableState();
         document
           .querySelectorAll(".tab")
           .forEach((t) => t.classList.remove("active"));
@@ -915,6 +1334,11 @@
           sectionMeta[tab].title;
         document.getElementById("sectionDescription").textContent =
           sectionMeta[tab].description;
+        if (!["students", "faculty", "courses"].includes(tab)) {
+          hideFilterBar();
+        }
+        document.getElementById("csvControls").style.display =
+          tab === "students" ? "flex" : "none";
         loadCurrentTab();
       }
 
@@ -1008,12 +1432,15 @@
           "Add Student",
         );
 
+        await showFilterBar(true);
+
         const table = document.getElementById("dataTable");
         table.innerHTML = '<tr><td class="empty">Loading students...</td></tr>';
 
         try {
-          const res = await fetch("/admin/students");
-          const data = await res.json();
+          const res = await fetch(`/admin/students?${buildQueryString()}`);
+          const { data, total, page, totalPages } = await res.json();
+          studentsCache = data;
           renderTable(
             [
               "Student ID",
@@ -1034,10 +1461,13 @@
                 s.dept_Id,
                 s.user_Id,
               ],
+              actions: `
+                <button class="edit" onclick="openEditModal('student','${s.student_Id}')">Edit</button>
+                <button class="delete" onclick="deleteStudent('${s.student_Id}')">Delete</button>
+              `,
             })),
-            (row) => row.cells[0],
-            "deleteStudent",
           );
+          renderPagination(total, page, totalPages);
         } catch (e) {
           console.error(e);
           table.innerHTML =
@@ -1079,12 +1509,15 @@
           "Add Faculty",
         );
 
+        await showFilterBar(true);
+
         const table = document.getElementById("dataTable");
         table.innerHTML = '<tr><td class="empty">Loading faculty...</td></tr>';
 
         try {
-          const res = await fetch("/admin/faculty");
-          const data = await res.json();
+          const res = await fetch(`/admin/faculty?${buildQueryString()}`);
+          const { data, total, page, totalPages } = await res.json();
+          facultyCache = data;
           renderTable(
             [
               "Faculty ID",
@@ -1105,10 +1538,13 @@
                 f.dept_Id,
                 f.user_Id,
               ],
+             actions: `
+                <button class="edit" onclick="openEditModal('faculty','${f.faculty_Id}')">Edit</button>
+                <button class="delete" onclick="deleteFaculty('${f.faculty_Id}')">Delete</button>
+              `,
             })),
-            (row) => row.cells[0],
-            "deleteFaculty",
           );
+          renderPagination(total, page, totalPages);
         } catch (e) {
           console.error(e);
           table.innerHTML =
@@ -1136,20 +1572,26 @@
           "Add Course",
         );
 
+        await showFilterBar(true);
+
         const table = document.getElementById("dataTable");
         table.innerHTML = '<tr><td class="empty">Loading courses...</td></tr>';
 
         try {
-          const res = await fetch("/admin/courses");
-          const data = await res.json();
+          const res = await fetch(`/admin/courses?${buildQueryString()}`);
+          const { data, total, page, totalPages } = await res.json();
+          coursesCache = data;
           renderTable(
             ["Course ID", "Course Name", "Credits", "Department"],
             data.map((c) => ({
               cells: [c.course_Id, c.course_name, c.credits, c.dept_Id],
+              actions: `
+                <button class="edit" onclick="openEditModal('course','${c.course_Id}')">Edit</button>
+                <button class="delete" onclick="deleteCourse('${c.course_Id}')">Delete</button>
+              `,
             })),
-            (row) => row.cells[0],
-            "deleteCourse",
           );
+          renderPagination(total, page, totalPages);
         } catch (e) {
           console.error(e);
           table.innerHTML =
@@ -1158,6 +1600,7 @@
       }
 
       async function loadLeaves() {
+        hideFilterBar();
         renderForm([], "");
         const table = document.getElementById("dataTable");
         table.innerHTML =
@@ -1175,6 +1618,7 @@
       }
 
       async function loadEnrollments() {
+        hideFilterBar();
         renderForm(
           [
             {
@@ -1257,6 +1701,7 @@
       }
 
       async function loadTeaches() {
+        hideFilterBar();
         renderForm(
           [
             {
