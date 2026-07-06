@@ -164,7 +164,7 @@
 
         <button
           class="back-btn"
-          onclick="window.location.href = 'faculty.html'"
+          id="dashboardBtn"
         >
           Dashboard
         </button>
@@ -195,7 +195,7 @@
             <button
               type="button"
               class="cancel-btn"
-              onclick="window.location.href = 'faculty.html'"
+              id="cancelBtn"
             >
               Cancel
             </button>
@@ -257,6 +257,12 @@
               alert(err.message || "Failed to send leave request");
             });
         });
+
+      const goBack = () => {
+        window.location.href = "faculty.html";
+      };
+      document.getElementById("dashboardBtn").addEventListener("click", goBack);
+      document.getElementById("cancelBtn").addEventListener("click", goBack);
     </script>
   </body>
 </html>

@@ -627,7 +627,7 @@
           <button
             class="notif-toggle"
             type="button"
-            onclick="toggleNotifPanel()"
+            id="notifToggleBtn"
             aria-label="Open notifications"
           >
             <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
@@ -651,7 +651,7 @@
               <button
                 class="notif-mark-read"
                 type="button"
-                onclick="markAllRead()"
+                id="markAllReadBtn"
               >
                 Mark all read
               </button>
@@ -661,7 +661,7 @@
             </div>
           </div>
         </div>
-        <button class="logout" onclick="logout()">Logout</button>
+        <button class="logout" id="logoutBtn">Logout</button>
       </div>
     </header>
 
@@ -785,13 +785,15 @@
                         <td>
           <button
               class="attendance-btn"
-              onclick="takeAttendance('${t.course_Id}','${t.course_name}')">
+              data-action="take-attendance"
+              data-id="${t.course_Id}"
+              data-name="${t.course_name}">
               📅 Take Attendance
           </button>
 
 
 
-          <button class="leave-btn" onclick="applyLeave()">
+          <button class="leave-btn" data-action="apply-leave">
           📝 Apply Leave
       </button>
 
@@ -962,6 +964,21 @@ ${
         document.body.appendChild(toast);
         setTimeout(() => toast.remove(), 4000);
       }
+      // Wire event listeners
+      document.getElementById("notifToggleBtn").addEventListener("click", toggleNotifPanel);
+      document.getElementById("markAllReadBtn").addEventListener("click", markAllRead);
+      document.getElementById("logoutBtn").addEventListener("click", logout);
+
+      document.getElementById("teachesTable").addEventListener("click", (e) => {
+        const btn = e.target.closest("button");
+        if (!btn) return;
+        const action = btn.dataset.action;
+        if (action === "take-attendance") {
+          takeAttendance(btn.dataset.id, btn.dataset.name);
+        } else if (action === "apply-leave") {
+          applyLeave();
+        }
+      });
     </script>
   </body>
 </html>

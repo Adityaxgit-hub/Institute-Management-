@@ -15,7 +15,7 @@ CREATE TABLE Department(
   HOD_Id INT
 );
 
---FACULTY TABLE
+-- FACULTY TABLE
 CREATE TABLE Faculty(
   faculty_Id INT PRIMARY KEY AUTO_INCREMENT,
   first_name VARCHAR(50),
@@ -346,3 +346,19 @@ CREATE TABLE notification_reads (
 
 ALTER TABLE Attendance
 ADD UNIQUE KEY uniq_attendance (student_Id, course_Id, Attd_Date);
+
+ALTER TABLE Users
+  ADD COLUMN failed_attempts INT NOT NULL DEFAULT 0,
+  ADD COLUMN locked_until DATETIME NULL;
+  
+CREATE TABLE IF NOT EXISTS signup_otps (
+  id INT PRIMARY KEY AUTO_INCREMENT,
+  email VARCHAR(100) NOT NULL,
+  otp_hash VARCHAR(255) NOT NULL,
+  role VARCHAR(10) NOT NULL,
+  record_id VARCHAR(15) NOT NULL,
+  expires_at DATETIME NOT NULL,
+  used TINYINT(1) DEFAULT 0,
+  attempts INT NOT NULL DEFAULT 0,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);  

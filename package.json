@@ -3,7 +3,9 @@
   "version": "1.0.0",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "csp:build": "node scripts/generate-csp-hashes.js",
+    "prepare": "husky"
   },
   "keywords": [],
   "author": "",
@@ -17,10 +19,23 @@
     "csv-parse": "^7.0.1",
     "dotenv": "^17.4.2",
     "express": "^5.1.0",
+    "express-rate-limit": "^8.5.2",
     "express-session": "^1.19.0",
+    "file-type": "^22.0.1",
+    "helmet": "^8.2.0",
     "multer": "^2.2.0",
     "mysql2": "^3.22.5",
     "nodemailer": "^9.0.1",
     "socket.io": "^4.8.3"
+  },
+  "devDependencies": {
+    "husky": "^9.1.7",
+    "lint-staged": "^17.0.8"
+  },
+  "lint-staged": {
+    "public/**/*.html": [
+      "npm run csp:build",
+      "git add csp-hashes.json"
+    ]
   }
 }

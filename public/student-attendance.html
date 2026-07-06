@@ -239,7 +239,7 @@
           </div>
         </div>
 
-        <button class="backBtn" onclick="window.location.href = 'student.html'">
+        <button class="backBtn" id="backBtn">
           Dashboard
         </button>
       </div>
@@ -327,5 +327,10 @@
         });
     </script>
     <script src="/js/api.js"></script>
+    <script>
+      document.getElementById("backBtn").addEventListener("click", () => {
+        window.location.href = "student.html";
+      });
+    </script>
   </body>
 </html>

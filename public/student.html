@@ -630,7 +630,7 @@
             <button
               class="notif-toggle"
               type="button"
-              onclick="toggleNotifPanel()"
+              id="notifToggleBtn"
               aria-label="Open notifications"
             >
               <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
@@ -654,7 +654,7 @@
                 <button
                   class="notif-mark-read"
                   type="button"
-                  onclick="markAllRead()"
+                  id="markAllReadBtn"
                 >
                   Mark all read
                 </button>
@@ -665,7 +665,7 @@
             </div>
           </div>
         </div>
-        <button class="logout" onclick="logout()">Logout</button>
+        <button class="logout" id="logoutBtn">Logout</button>
       </div>
     </header>
 
@@ -725,7 +725,7 @@
 
             <button
               class="attendance-btn"
-              onclick="window.location.href = 'student-attendance.html'"
+              id="attendanceBtn"
             >
               View Attendance
             </button>
@@ -947,6 +947,13 @@ ${
         document.body.appendChild(toast);
         setTimeout(() => toast.remove(), 4000);
       }
+      // Wire event listeners
+      document.getElementById("notifToggleBtn").addEventListener("click", toggleNotifPanel);
+      document.getElementById("markAllReadBtn").addEventListener("click", markAllRead);
+      document.getElementById("logoutBtn").addEventListener("click", logout);
+      document.getElementById("attendanceBtn").addEventListener("click", () => {
+        window.location.href = "student-attendance.html";
+      });
     </script>
   </body>
 </html>

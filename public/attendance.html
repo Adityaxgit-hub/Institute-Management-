@@ -167,7 +167,7 @@
           </div>
         </div>
 
-        <button class="logout" onclick="history.back()">Back</button>
+        <button class="logout" id="backBtn">Back</button>
       </div>
     </header>
 
@@ -203,7 +203,7 @@
           </tbody>
         </table>
 
-        <button class="save-btn" onclick="saveAttendance()">
+        <button class="save-btn" id="saveAttendanceBtn">
           Save Attendance
         </button>
       </div>
@@ -292,6 +292,9 @@ checked>
             }
           });
       }
+
+      document.getElementById("backBtn").addEventListener("click", () => history.back());
+      document.getElementById("saveAttendanceBtn").addEventListener("click", saveAttendance);
     </script>
   </body>
 </html>

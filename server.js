@@ -7,14 +7,43 @@ const mysql = require("mysql2/promise");
 const bcrypt = require("bcrypt");
 const notificationsRoutes = require("./routes/notifications");
 const session = require("express-session");
+const helmet = require("helmet");
+const rateLimit = require("express-rate-limit");
+const path = require("path");
+const fs = require("fs");
 
+// Server configuration setup (reloaded)
 const app = express();
+
+let cspHashes = { scriptHashes: [] };
+try {
+  const hashesPath = path.join(__dirname, "csp-hashes.json");
+  if (fs.existsSync(hashesPath)) {
+    cspHashes = JSON.parse(fs.readFileSync(hashesPath, "utf8"));
+  }
+} catch (err) {
+  console.error("Failed to load CSP hashes:", err);
+}
+
+app.use(
+  helmet({
+    contentSecurityPolicy: {
+      directives: {
+        defaultSrc: ["'self'"],
+        styleSrc: ["'self'", "https://fonts.googleapis.com", "'unsafe-inline'"],
+        fontSrc: ["'self'", "https://fonts.gstatic.com"],
+        scriptSrc: ["'self'", ...cspHashes.scriptHashes],
+        imgSrc: ["'self'", "data:", "https://img.icons8.com"],
+        connectSrc: ["'self'"],
+      },
+    },
+    crossOriginEmbedderPolicy: false,
+  }),
+);
 const server = http.createServer(app);
 const io = new Server(server);
 const saltRounds = 10;
 const multer = require("multer");
-const path = require("path");
-const fs = require("fs");
 const nodemailer = require("nodemailer");
 const crypto = require("crypto");
 
@@ -60,6 +89,34 @@ function requireRole(...roles) {
     next();
   };
 }
+
+// General API limiter — protects everything by default
+const generalLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 300,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { message: "Too many requests. Please try again later." },
+});
+app.use(generalLimiter);
+
+// Strict limiter for login — the main brute-force target
+const loginLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { message: "Too many login attempts. Please try again in 15 minutes." },
+});
+
+// Strict limiter for password reset / signup — prevents email-bombing & enumeration
+const sensitiveLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000, // 1 hour
+  max: 5,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { message: "Too many attempts. Please try again in an hour." },
+});
 
 // ---------------- DATABASE CONNECTION ----------------
 const db = mysql.createPool({
@@ -113,6 +170,8 @@ io.on("connection", (socket) => {
 });
 
 // ---------------- NOTIFICATIONS pdf----------------
+const { fileTypeFromFile } = require("file-type");
+
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
     const dir = "./public/uploads/pdfs";
@@ -120,13 +179,21 @@ const storage = multer.diskStorage({
     cb(null, dir);
   },
   filename: (req, file, cb) => {
-    cb(null, Date.now() + "-" + file.originalname);
+    cb(null, `${Date.now()}-${crypto.randomBytes(6).toString("hex")}.pdf`);
   },
 });
+
 const upload = multer({
   storage,
+  limits: {
+    fileSize: 10 * 1024 * 1024, // 10MB cap
+    files: 1,
+  },
   fileFilter: (req, file, cb) => {
-    cb(null, file.mimetype === "application/pdf");
+    if (file.mimetype !== "application/pdf") {
+      return cb(new Error("Only PDF files are allowed"));
+    }
+    cb(null, true);
   },
 });
 
@@ -142,7 +209,10 @@ const csvUpload = multer({
 const { parse: parseCsv } = require("csv-parse/sync");
 
 // ---------------- LOGIN ----------------
-app.post("/login",  async (req, res) => {
+const MAX_ATTEMPTS = 5;
+const LOCK_DURATION_MS = 15 * 60 * 1000; // 15 minutes
+
+app.post("/login", loginLimiter, async (req, res) => {
   const { username, password } = req.body;
 
   try {
@@ -157,22 +227,58 @@ app.post("/login",  async (req, res) => {
       });
     }
 
-    const match = await bcrypt.compare(password, results[0].password);
+    const user = results[0];
 
-    if (!match) {
-      return res.status(401).json({
-        message: "Invalid password",
-        error: `Password does not match for username: ${username}`,
+    // Check if account is currently locked
+    if (user.locked_until && new Date(user.locked_until) > new Date()) {
+      const minutesLeft = Math.ceil(
+        (new Date(user.locked_until) - new Date()) / 60000,
+      );
+      return res.status(423).json({
+        message: `Account locked due to too many failed attempts. Try again in ${minutesLeft} minute(s).`,
       });
     }
 
+    const match = await bcrypt.compare(password, user.password);
+
+    if (!match) {
+      const newAttempts = user.failed_attempts + 1;
+
+      if (newAttempts >= MAX_ATTEMPTS) {
+        const lockedUntil = new Date(Date.now() + LOCK_DURATION_MS);
+        await db.query(
+          "UPDATE Users SET failed_attempts = ?, locked_until = ? WHERE user_Id = ?",
+          [newAttempts, lockedUntil, user.user_Id],
+        );
+        return res.status(423).json({
+          message: "Too many failed attempts. Account locked for 15 minutes.",
+        });
+      }
+
+      await db.query(
+        "UPDATE Users SET failed_attempts = ? WHERE user_Id = ?",
+        [newAttempts, user.user_Id],
+      );
+
+      return res.status(401).json({
+        message: "Invalid password",
+        error: `${MAX_ATTEMPTS - newAttempts} attempt(s) remaining before lockout.`,
+      });
+    }
+
+    // Successful login — reset counters
+    await db.query(
+      "UPDATE Users SET failed_attempts = 0, locked_until = NULL WHERE user_Id = ?",
+      [user.user_Id],
+    );
+
     req.session.user = {
-      id: results[0].user_Id,
-      name: results[0].username,
-      role: results[0].role,
+      id: user.user_Id,
+      name: user.username,
+      role: user.role,
     };
 
-    res.json({ user: results[0] });
+    res.json({ user });
   } catch (err) {
     console.error("Login failed:", err);
     res.status(500).json({
@@ -182,20 +288,20 @@ app.post("/login",  async (req, res) => {
   }
 });
 
-app.post("/signup", async (req, res) => {
-  const { username, password, role, email } = req.body;
+const otpRequestLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  max: 3,
+  message: { message: "Too many OTP requests. Please try again later." },
+});
 
-  if (!username || !password || !role || !email) {
+// STEP 1: request an OTP to prove the person controls that institute email
+app.post("/signup/request-otp", otpRequestLimiter, async (req, res) => {
+  const { email, role } = req.body;
+
+  if (!email || !role || !["student", "faculty"].includes(role)) {
     return res.status(400).json({
       success: false,
-      message: "Please provide username, password, role, and email.",
-    });
-  }
-
-  if (!["student", "faculty"].includes(role)) {
-    return res.status(400).json({
-      success: false,
-      message: "Role must be either student or faculty.",
+      message: "Valid email and role (student/faculty) are required.",
     });
   }
 
@@ -207,18 +313,120 @@ app.post("/signup", async (req, res) => {
 
     const [records] = await db.query(lookupQuery, [email]);
 
-    if (records.length === 0) {
-      return res.status(404).json({
+    // Always return the same generic message whether or not the email exists —
+    // prevents attackers from using this endpoint to enumerate valid institute emails
+    const genericResponse = {
+      success: true,
+      message: "If this email is on record and unclaimed, a verification code has been sent.",
+    };
+
+    if (records.length === 0 || records[0].user_Id) {
+      return res.json(genericResponse); // no record, or already claimed — say nothing more
+    }
+
+    const otp = crypto.randomInt(100000, 999999).toString(); // 6-digit OTP
+    const otpHash = await bcrypt.hash(otp, saltRounds);
+    const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
+
+    // Invalidate any previous unused OTPs for this email
+    await db.query("UPDATE signup_otps SET used = 1 WHERE email = ? AND used = 0", [email]);
+
+    await db.query(
+      "INSERT INTO signup_otps (email, otp_hash, role, record_id, expires_at) VALUES (?, ?, ?, ?, ?)",
+      [email, otpHash, role, records[0].recordId, expiresAt],
+    );
+
+    const transporter = nodemailer.createTransport({
+      service: "gmail",
+      auth: {
+        user: process.env.GMAIL_USER,
+        pass: process.env.GMAIL_APP_PASSWORD,
+      },
+    });
+
+    await transporter.sendMail({
+      from: `"Institute Portal" <${process.env.GMAIL_USER}>`,
+      to: email,
+      subject: "Your Signup Verification Code",
+      html: `
+        <div style="font-family: Inter, sans-serif; max-width: 480px; margin: auto; padding: 30px; border: 1px solid #dbe3ef; border-radius: 16px;">
+          <h2 style="color: #1d4ed8;">Verify Your Email</h2>
+          <p>Use the code below to complete your account signup:</p>
+          <p style="font-size: 2rem; font-weight: 800; letter-spacing: 0.2em; color: #0f172a;">${otp}</p>
+          <p style="color: #64748b; font-size: 0.9rem;">This code expires in 10 minutes. If you didn't request this, ignore this email.</p>
+        </div>
+      `,
+    });
+
+    res.json(genericResponse);
+  } catch (err) {
+    console.error("OTP request failed:", err);
+    res.status(500).json({ success: false, message: "Unable to send verification code." });
+  }
+});
+
+// STEP 2: verify OTP + create the account (replaces your old /signup route)
+app.post("/signup", sensitiveLimiter, async (req, res) => {
+  const { username, password, role, email, otp } = req.body;
+
+  if (!username || !password || !role || !email || !otp) {
+    return res.status(400).json({
+      success: false,
+      message: "Please provide username, password, role, email, and verification code.",
+    });
+  }
+
+  if (!["student", "faculty"].includes(role)) {
+    return res.status(400).json({
+      success: false,
+      message: "Role must be either student or faculty.",
+    });
+  }
+
+  try {
+    const [otpRows] = await db.query(
+      `SELECT * FROM signup_otps
+       WHERE email = ? AND role = ? AND used = 0 AND expires_at > NOW()
+       ORDER BY id DESC LIMIT 1`,
+      [email, role],
+    );
+
+    if (otpRows.length === 0) {
+      return res.status(400).json({
         success: false,
-        message: "No matching record found for this email. Contact admin.",
+        message: "Verification code expired or not found. Please request a new one.",
       });
     }
 
-    if (records[0].user_Id) {
+    const otpRecord = otpRows[0];
+
+    if (otpRecord.attempts >= 5) {
+      return res.status(429).json({
+        success: false,
+        message: "Too many incorrect attempts. Please request a new code.",
+      });
+    }
+
+    const otpMatch = await bcrypt.compare(otp, otpRecord.otp_hash);
+
+    if (!otpMatch) {
+      await db.query("UPDATE signup_otps SET attempts = attempts + 1 WHERE id = ?", [otpRecord.id]);
+      return res.status(400).json({ success: false, message: "Incorrect verification code." });
+    }
+
+    // OTP is valid — re-check the record hasn't been claimed since (race condition guard)
+    const recordTable = role === "student" ? "Students" : "Faculty";
+    const idColumn = role === "student" ? "student_Id" : "faculty_Id";
+
+    const [currentRecord] = await db.query(
+      `SELECT user_Id FROM ${recordTable} WHERE ${idColumn} = ?`,
+      [otpRecord.record_id],
+    );
+
+    if (currentRecord.length === 0 || currentRecord[0].user_Id) {
       return res.status(409).json({
         success: false,
-        message:
-          "An account already exists for this record. Try logging in or resetting your password.",
+        message: "This record is no longer available for signup.",
       });
     }
 
@@ -230,12 +438,12 @@ app.post("/signup", async (req, res) => {
     const newUserId = userResult.insertId;
 
     try {
-      const linkQuery =
-        role === "student"
-          ? "UPDATE Students SET user_Id=? WHERE student_Id=?"
-          : "UPDATE Faculty SET user_Id=? WHERE faculty_Id=?";
+      await db.query(
+        `UPDATE ${recordTable} SET user_Id=? WHERE ${idColumn}=?`,
+        [newUserId, otpRecord.record_id],
+      );
 
-      await db.query(linkQuery, [newUserId, records[0].recordId]);
+      await db.query("UPDATE signup_otps SET used = 1 WHERE id = ?", [otpRecord.id]);
 
       res.json({ success: true, message: "Account created successfully." });
     } catch (linkErr) {
@@ -245,13 +453,9 @@ app.post("/signup", async (req, res) => {
   } catch (err) {
     console.error("Signup failed:", err);
     if (err.code === "ER_DUP_ENTRY") {
-      return res
-        .status(409)
-        .json({ success: false, message: "Username already exists." });
+      return res.status(409).json({ success: false, message: "Username already exists." });
     }
-    res
-      .status(500)
-      .json({ success: false, message: "Database error creating account." });
+    res.status(500).json({ success: false, message: "Database error creating account." });
   }
 });
 
@@ -1227,13 +1431,35 @@ app.get("/admin/faculty-leaves", requireRole("admin"), csrfProtection, async (re
 });
 
 // -- ADMIN - UPLOAD PDF
-app.post("/admin/upload-pdf", requireRole("admin"), csrfProtection, upload.single("pdf"), (req, res) => {
-  if (!req.file) return res.status(400).json({ error: "No PDF uploaded" });
-  res.json({
-    url: `/uploads/pdfs/${req.file.filename}`,
-    name: req.file.originalname,
-  });
-});
+app.post(
+  "/admin/upload-pdf",
+  requireRole("admin"),
+  csrfProtection,
+  upload.single("pdf"),
+  async (req, res) => {
+    if (!req.file) return res.status(400).json({ error: "No PDF uploaded" });
+
+    try {
+      const detected = await fileTypeFromFile(req.file.path);
+
+      if (!detected || detected.mime !== "application/pdf") {
+        fs.unlinkSync(req.file.path);
+        return res.status(400).json({ error: "File content is not a valid PDF" });
+      }
+
+      res.json({
+        url: `/uploads/pdfs/${req.file.filename}`,
+        name: req.file.originalname,
+      });
+    } catch (err) {
+      console.error("PDF validation error:", err);
+      if (req.file?.path && fs.existsSync(req.file.path)) {
+        fs.unlinkSync(req.file.path);
+      }
+      res.status(500).json({ error: "Unable to process uploaded file" });
+    }
+  },
+);
 
 app.get("/admin/departments", requireRole("admin"), csrfProtection, async (req, res) => {
   try {
@@ -1415,7 +1641,7 @@ app.delete("/admin/teaches/:id", requireRole("admin"), csrfProtection, async (re
 });
 
 // ---------------- FORGOT PASSWORD ----------------
-app.post("/forgot-password", csrfProtection, async (req, res) => {
+app.post("/forgot-password", sensitiveLimiter, csrfProtection, async (req, res) => {
   const { email } = req.body;
 
   if (!email) {
@@ -1547,6 +1773,13 @@ app.post("/reset-password", csrfProtection, async (req, res) => {
       .status(500)
       .json({ message: "Something went wrong. Please try again." });
   }
+});
+
+app.use((err, req, res, next) => {
+  if (err instanceof multer.MulterError || err.message === "Only PDF files are allowed") {
+    return res.status(400).json({ error: err.message });
+  }
+  next(err);
 });
 
 // -- SERVER

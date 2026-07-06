@@ -306,6 +306,7 @@
               placeholder="Enter password"
             />
             <img
+              id="togglePasswordBtn"
               src="https://img.icons8.com/ios-glyphs/30/000000/visible--v1.png"
               alt="Show password"
               style="
@@ -316,12 +317,11 @@
                 height: 24px;
                 cursor: pointer;
               "
-              onclick="togglePasswordVisibility()"
             />
           </div>
 
           <div class="forgotPass">
-            <a href="#" onclick="openForgotModal(event)">Forgot password?</a>
+            <a href="#" id="forgotPasswordLink">Forgot password?</a>
           </div>
 
           <!-- Forgot Password Modal -->
@@ -374,8 +374,8 @@
               ></p>
               <div style="display: flex; gap: 12px; margin-top: 22px">
                 <button
+                  id="sendResetBtn"
                   type="button"
-                  onclick="sendResetEmail()"
                   style="
                     flex: 1;
                     height: 46px;
@@ -391,8 +391,8 @@
                   Send Reset Link
                 </button>
                 <button
+                  id="closeForgotBtn"
                   type="button"
-                  onclick="closeForgotModal()"
                   style="
                     height: 46px;
                     padding: 0 18px;
@@ -416,7 +416,7 @@
 
         <div class="signup-link">
           New account?
-          <span onclick="location.href = 'signup.html'">Create account</span>
+          <span id="createAccountBtn">Create account</span>
         </div>
 
         <div class="notice">
@@ -511,6 +511,14 @@
           btn.disabled = false;
         }
       }
+      // Attach Event Listeners
+      document.getElementById("togglePasswordBtn").addEventListener("click", togglePasswordVisibility);
+      document.getElementById("forgotPasswordLink").addEventListener("click", openForgotModal);
+      document.getElementById("sendResetBtn").addEventListener("click", sendResetEmail);
+      document.getElementById("closeForgotBtn").addEventListener("click", closeForgotModal);
+      document.getElementById("createAccountBtn").addEventListener("click", () => {
+        location.href = 'signup.html';
+      });
     </script>
   </body>
 </html>
