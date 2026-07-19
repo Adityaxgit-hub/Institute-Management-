@@ -362,3 +362,8 @@ CREATE TABLE IF NOT EXISTS signup_otps (
   attempts INT NOT NULL DEFAULT 0,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );  
+
+ALTER TABLE Users
+ADD COLUMN must_reset_password TINYINT(1) NOT NULL DEFAULT 1;
+
+UPDATE Users SET must_reset_password = 0;

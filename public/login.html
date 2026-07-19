@@ -445,6 +445,12 @@
           if (data.user) {
             localStorage.setItem("userId", data.user.user_Id);
             localStorage.setItem("role", data.user.role);
+
+            if (data.user.must_reset_password) {
+              location.href = "force-reset-password.html";
+              return;
+            }
+
             if (data.user.role === "student") location.href = "student.html";
             else if (data.user.role === "faculty")
               location.href = "faculty.html";
@@ -512,13 +518,23 @@
         }
       }
       // Attach Event Listeners
-      document.getElementById("togglePasswordBtn").addEventListener("click", togglePasswordVisibility);
-      document.getElementById("forgotPasswordLink").addEventListener("click", openForgotModal);
-      document.getElementById("sendResetBtn").addEventListener("click", sendResetEmail);
-      document.getElementById("closeForgotBtn").addEventListener("click", closeForgotModal);
-      document.getElementById("createAccountBtn").addEventListener("click", () => {
-        location.href = 'signup.html';
-      });
+      document
+        .getElementById("togglePasswordBtn")
+        .addEventListener("click", togglePasswordVisibility);
+      document
+        .getElementById("forgotPasswordLink")
+        .addEventListener("click", openForgotModal);
+      document
+        .getElementById("sendResetBtn")
+        .addEventListener("click", sendResetEmail);
+      document
+        .getElementById("closeForgotBtn")
+        .addEventListener("click", closeForgotModal);
+      document
+        .getElementById("createAccountBtn")
+        .addEventListener("click", () => {
+          location.href = "signup.html";
+        });
     </script>
   </body>
 </html>

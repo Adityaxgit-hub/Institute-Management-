@@ -4,17 +4,26 @@ const csrf = require("csurf");
 const csrfProtection = csrf({ cookie: false });
 
 function requireAuth(req, res, next) {
-  if (!req.session.user)
+  if (!req.session.user) {
     return res.status(401).json({ message: "Please log in." });
+  }
+  if (req.session.user.mustReset) {
+    return res.status(403).json({ message: "Password reset required.", code: "MUST_RESET" });
+  }
   next();
 }
 
 function requireRole(...roles) {
   return (req, res, next) => {
-    if (!req.session.user)
+    if (!req.session.user) {
       return res.status(401).json({ message: "Please log in." });
-    if (!roles.includes(req.session.user.role))
+    }
+    if (req.session.user.mustReset) {
+      return res.status(403).json({ message: "Password reset required.", code: "MUST_RESET" });
+    }
+    if (!roles.includes(req.session.user.role)) {
       return res.status(403).json({ message: "Not authorized." });
+    }
     next();
   };
 }

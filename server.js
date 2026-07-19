@@ -75,6 +75,9 @@ function requireAuth(req, res, next) {
   if (!req.session.user) {
     return res.status(401).json({ message: "Please log in." });
   }
+  if (req.session.user.mustReset) {
+    return res.status(403).json({ message: "Password reset required.", code: "MUST_RESET" });
+  }
   next();
 }
 
@@ -82,6 +85,9 @@ function requireRole(...roles) {
   return (req, res, next) => {
     if (!req.session.user) {
       return res.status(401).json({ message: "Please log in." });
+    }
+    if (req.session.user.mustReset) {
+      return res.status(403).json({ message: "Password reset required.", code: "MUST_RESET" });
     }
     if (!roles.includes(req.session.user.role)) {
       return res.status(403).json({ message: "Not authorized." });
@@ -229,7 +235,6 @@ app.post("/login", loginLimiter, async (req, res) => {
 
     const user = results[0];
 
-    // Check if account is currently locked
     if (user.locked_until && new Date(user.locked_until) > new Date()) {
       const minutesLeft = Math.ceil(
         (new Date(user.locked_until) - new Date()) / 60000,
@@ -276,9 +281,10 @@ app.post("/login", loginLimiter, async (req, res) => {
       id: user.user_Id,
       name: user.username,
       role: user.role,
+      mustReset: !!user.must_reset_password,
     };
 
-    res.json({ user });
+    res.json({ user }); 
   } catch (err) {
     console.error("Login failed:", err);
     res.status(500).json({
@@ -365,7 +371,7 @@ app.post("/signup/request-otp", otpRequestLimiter, async (req, res) => {
   }
 });
 
-// STEP 2: verify OTP + create the account (replaces your old /signup route)
+// STEP 2: verify OTP + create the account (replaces old /signup route)
 app.post("/signup", sensitiveLimiter, async (req, res) => {
   const { username, password, role, email, otp } = req.body;
 
@@ -881,17 +887,15 @@ app.post( "/admin/students/import",
 
 app.post("/admin/students", requireRole("admin"), csrfProtection, async (req, res) => {
   try {
-    const { student_Id, first_name, last_name, email, phone, DOB, dept_Id } =
-      req.body;
+    const { student_Id, first_name, last_name, email, phone, DOB, dept_Id } = req.body;
 
-    const username = first_name.concat(last_name).toLowerCase();
+    const username = first_name.concat(last_name).toLowerCase().replace(/[^a-z0-9]/g, "");
 
-    const password = username + "123";
-
+    const password = crypto.randomBytes(6).toString("hex");
     const hashedPassword = await bcrypt.hash(password, saltRounds);
 
     const [userResult] = await db.query(
-      "INSERT INTO Users (username, password, role) VALUES (?, ?, 'student')",
+      "INSERT INTO Users (username, password, role, must_reset_password) VALUES (?, ?, 'student', 1)",
       [username, hashedPassword],
     );
 
@@ -903,33 +907,20 @@ app.post("/admin/students", requireRole("admin"), csrfProtection, async (req, re
         (student_Id, first_name, last_name, email, phone, DOB,
          admission_date, dept_Id, user_Id)
          VALUES (?, ?, ?, ?, ?, ?, CURDATE(), ?, ?)`,
-        [
-          student_Id,
-          first_name,
-          last_name,
-          email,
-          phone,
-          DOB,
-          dept_Id,
-          newUserId,
-        ],
+        [student_Id, first_name, last_name, email, phone, DOB, dept_Id, newUserId],
       );
 
       res.json({
         message: "Student and User created successfully!",
-        login: { username, password },
+        login: { username, password }, 
       });
     } catch (studentErr) {
       await db.query("DELETE FROM Users WHERE user_Id=?", [newUserId]);
-
       throw studentErr;
     }
   } catch (err) {
     console.error(err);
-
-    res.status(500).json({
-      error: err.message,
-    });
+    res.status(500).json({ error: err.message });
   }
 });
 
@@ -1039,12 +1030,12 @@ app.post("/admin/faculty", requireRole("admin"), csrfProtection, async (req, res
 
     const username = (first_name + last_name).toLowerCase();
 
-    const password = username + "123";
+    const password = crypto.randomBytes(6).toString("hex");
 
     const hashedPassword = await bcrypt.hash(password, saltRounds);
 
     const [userResult] = await db.query(
-      "INSERT INTO Users (username, password, role) VALUES (?, ?, 'faculty')",
+      "INSERT INTO Users (username, password, role, must_reset_password) VALUES (?, ?, 'faculty', 1)",
       [username, hashedPassword],
     );
 
@@ -1772,6 +1763,30 @@ app.post("/reset-password", csrfProtection, async (req, res) => {
     res
       .status(500)
       .json({ message: "Something went wrong. Please try again." });
+  }
+});
+
+app.post("/force-reset-password", csrfProtection, async (req, res) => {
+  if (!req.session.user) {
+    return res.status(401).json({ message: "Please log in." });
+  }
+
+  const { newPassword } = req.body;
+  if (!newPassword || newPassword.length < 6) {
+    return res.status(400).json({ message: "Password must be at least 6 characters." });
+  }
+
+  try {
+    const hashedPassword = await bcrypt.hash(newPassword, saltRounds);
+    await db.query(
+      "UPDATE Users SET password = ?, must_reset_password = 0 WHERE user_Id = ?",
+      [hashedPassword, req.session.user.id],
+    );
+    req.session.user.mustReset = false;
+    res.json({ message: "Password updated successfully." });
+  } catch (err) {
+    console.error("Force reset error:", err);
+    res.status(500).json({ message: "Something went wrong." });
   }
 });
 
