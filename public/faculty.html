@@ -791,7 +791,15 @@
               📅 Take Attendance
           </button>
 
-
+          <button
+              class="attendance-btn"
+              data-action="enter-grades"
+              data-id="${t.course_Id}"
+              data-name="${t.course_name}"
+              data-semester="${t.semester}"
+              data-year="${t.year}">
+              📊 Enter Grades
+          </button>
 
           <button class="leave-btn" data-action="apply-leave">
           📝 Apply Leave
@@ -837,6 +845,15 @@
 
       function applyLeave() {
         window.location.href = "faculty-leave.html";
+      }
+
+      function enterGrades(courseId, courseName, semester, year) {
+        localStorage.setItem("gradeCourseId", courseId);
+        localStorage.setItem("gradeCourseName", courseName);
+        localStorage.setItem("gradeSemester", semester);
+        localStorage.setItem("gradeYear", year);
+
+        window.location.href = "grades.html";
       }
 
       loadData();
@@ -975,6 +992,8 @@ ${
         const action = btn.dataset.action;
         if (action === "take-attendance") {
           takeAttendance(btn.dataset.id, btn.dataset.name);
+        } else if (action === "enter-grades") {
+          enterGrades(btn.dataset.id, btn.dataset.name, btn.dataset.semester, btn.dataset.year);
         } else if (action === "apply-leave") {
           applyLeave();
         }

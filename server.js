@@ -1282,6 +1282,185 @@ app.post("/faculty/attendance", requireRole("faculty"), csrfProtection, async (r
   }
 });
 
+// FACULTY - GET STUDENTS + MARKS FOR A COURSE
+app.get("/faculty/course/:courseId/marks",requireRole("faculty"),csrfProtection,
+  async (req, res) => {
+    try {
+      const { courseId } = req.params;
+      const { semester, year } = req.query;
+
+      if (!semester || !year) {
+        return res.status(400).json({ error: "semester and year are required" });
+      }
+
+      const [facultyRow] = await db.query(
+        "SELECT faculty_Id FROM Faculty WHERE user_Id = ?",
+        [req.session.user.id],
+      );
+      if (facultyRow.length === 0) {
+        return res.status(404).json({ error: "Faculty record not found" });
+      }
+
+      const [owns] = await db.query(
+        "SELECT teach_Id FROM Teaches WHERE faculty_Id=? AND course_Id=? AND semester=? AND year=?",
+        [facultyRow[0].faculty_Id, courseId, semester, year],
+      );
+      if (owns.length === 0) {
+        return res.status(403).json({ error: "You do not teach this course offering." });
+      }
+
+      const [rows] = await db.query(
+        `SELECT s.student_Id, s.first_name, s.last_name,
+                m.assignment1, m.mid_exam, m.assignment2,
+                m.end_sem, m.internal_viva, m.external_viva
+         FROM Enrollments e
+         JOIN Students s ON e.student_Id = s.student_Id
+         LEFT JOIN Marks m
+           ON m.student_Id = e.student_Id
+          AND m.course_Id = e.course_Id
+          AND m.semester = e.semester
+          AND m.year = e.year
+         WHERE e.course_Id = ? AND e.semester = ? AND e.year = ?
+         ORDER BY s.student_Id`,
+        [courseId, semester, year],
+      );
+
+      res.json(rows);
+    } catch (err) {
+      console.error("GET /faculty/course/:courseId/marks error:", err);
+      res.status(500).json({ error: "Unable to load marks." });
+    }
+  },
+);
+
+// FACULTY - SAVE MARKS (bulk upsert)
+const MARK_FIELDS = [
+  "assignment1",
+  "mid_exam",
+  "assignment2",
+  "end_sem",
+  "internal_viva",
+  "external_viva",
+];
+
+function isValidMark(v) {
+  if (v === null || v === undefined || v === "") return true; 
+  const n = Number(v);
+  return !Number.isNaN(n) && n >= 0 && n <= 100;
+}
+
+app.post("/faculty/marks", requireRole("faculty"), csrfProtection, async (req, res) => {
+  try {
+    const { courseId, semester, year, marks } = req.body;
+
+    if (!courseId || !semester || !year || !Array.isArray(marks)) {
+      return res.status(400).json({ error: "courseId, semester, year, and marks[] are required" });
+    }
+
+    const [facultyRow] = await db.query(
+      "SELECT faculty_Id FROM Faculty WHERE user_Id = ?",
+      [req.session.user.id],
+    );
+    if (facultyRow.length === 0) {
+      return res.status(404).json({ error: "Faculty record not found" });
+    }
+
+    const [owns] = await db.query(
+      "SELECT teach_Id FROM Teaches WHERE faculty_Id=? AND course_Id=? AND semester=? AND year=?",
+      [facultyRow[0].faculty_Id, courseId, semester, year],
+    );
+    if (owns.length === 0) {
+      return res.status(403).json({ error: "You do not teach this course offering." });
+    }
+
+    for (const row of marks) {
+      for (const field of MARK_FIELDS) {
+        if (!isValidMark(row[field])) {
+          return res.status(400).json({
+            error: `Invalid value for ${field} on student ${row.studentId}. Must be 0-100 or blank.`,
+          });
+        }
+      }
+    }
+
+    const sql = `
+      INSERT INTO Marks
+        (student_Id, course_Id, semester, year,
+         assignment1, mid_exam, assignment2, end_sem, internal_viva, external_viva, updated_by)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      ON DUPLICATE KEY UPDATE
+        assignment1 = VALUES(assignment1),
+        mid_exam = VALUES(mid_exam),
+        assignment2 = VALUES(assignment2),
+        end_sem = VALUES(end_sem),
+        internal_viva = VALUES(internal_viva),
+        external_viva = VALUES(external_viva),
+        updated_by = VALUES(updated_by)
+    `;
+
+    for (const row of marks) {
+      await db.query(sql, [
+        row.studentId,
+        courseId,
+        semester,
+        year,
+        row.assignment1 || null,
+        row.mid_exam || null,
+        row.assignment2 || null,
+        row.end_sem || null,
+        row.internal_viva || null,
+        row.external_viva || null,
+        facultyRow[0].faculty_Id,
+      ]);
+    }
+
+    res.json({ message: "Marks Saved Successfully" });
+  } catch (err) {
+    console.error("POST /faculty/marks error:", err);
+    res.status(500).json({ error: "Unable to save marks." });
+  }
+});
+
+// STUDENT - VIEW OWN MARKS (per enrolled course)
+app.get("/student/:userId/marks", requireRole("student"), csrfProtection, async (req, res) => {
+  const { userId } = req.params;
+
+  if (String(req.session.user.id) !== String(userId)) {
+    return res.status(403).json({ message: "Not authorized." });
+  }
+
+  try {
+    const [studentResults] = await db.query(
+      "SELECT student_Id FROM Students WHERE user_Id = ?",
+      [userId],
+    );
+    if (studentResults.length === 0) {
+      return res.status(404).json({ message: "Student not found" });
+    }
+    const studentId = studentResults[0].student_Id;
+
+    const [rows] = await db.query(
+      `SELECT e.course_Id, c.course_name, e.semester, e.year,
+              m.assignment1, m.mid_exam, m.assignment2,
+              m.end_sem, m.internal_viva, m.external_viva
+       FROM Enrollments e
+       JOIN Courses c ON e.course_Id = c.course_Id
+       LEFT JOIN Marks m
+         ON m.student_Id = e.student_Id
+        AND m.course_Id = e.course_Id
+        AND m.semester = e.semester
+        AND m.year = e.year
+       WHERE e.student_Id = ?`,
+      [studentId],
+    );
+
+    res.json(rows);
+  } catch (err) {
+    console.error("GET /student/:userId/marks error:", err);
+    res.status(500).json({ error: "Unable to load marks." });
+  }
+});
+
 // FACULTY - APPLY LEAVE
 app.post("/faculty/apply-leave",requireRole("faculty"), csrfProtection, async (req, res) => {
   try {

@@ -1,0 +1,370 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+    <title>Enter Grades</title>
+
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap"
+      rel="stylesheet"
+    />
+
+    <style>
+      :root {
+        --primary: #1d4ed8;
+        --primary-dark: #1e3a8a;
+        --accent: #0f766e;
+        --bg: #f3f6fb;
+        --surface: #fff;
+        --border: #dbe3ef;
+        --text: #0f172a;
+        --muted: #64748b;
+        --shadow: 0 16px 36px rgba(15, 23, 42, 0.08);
+        --radius: 18px;
+      }
+
+      * {
+        box-sizing: border-box;
+        font-family: Inter, sans-serif;
+      }
+
+      body {
+        margin: 0;
+        background: var(--bg);
+        color: var(--text);
+      }
+
+      .topbar {
+        background: white;
+        border-bottom: 1px solid var(--border);
+        position: sticky;
+        top: 0;
+        z-index: 10;
+      }
+
+      .topbar-inner {
+        max-width: 1250px;
+        margin: auto;
+        padding: 18px 25px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+      }
+
+      .brand {
+        display: flex;
+        align-items: center;
+        gap: 15px;
+      }
+
+      .brand-mark {
+        width: 45px;
+        height: 45px;
+        background: linear-gradient(135deg, var(--primary), var(--accent));
+        border-radius: 12px;
+        display: grid;
+        place-items: center;
+        color: white;
+        font-weight: bold;
+      }
+
+      .logout {
+        padding: 10px 18px;
+        border: none;
+        border-radius: 10px;
+        background: var(--primary);
+        color: white;
+        cursor: pointer;
+      }
+
+      .page {
+        max-width: 1250px;
+        margin: auto;
+        padding: 30px;
+      }
+
+      .card {
+        background: white;
+        border-radius: 18px;
+        box-shadow: var(--shadow);
+        padding: 25px;
+        margin-bottom: 25px;
+      }
+
+      .card h2 {
+        margin-top: 0;
+      }
+
+      .meta-row {
+        color: var(--muted);
+        font-size: 0.9rem;
+        margin-top: 4px;
+      }
+
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-top: 20px;
+      }
+
+      th {
+        background: #f8fafc;
+        font-size: 0.78rem;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        color: #475569;
+      }
+
+      th,
+      td {
+        padding: 12px;
+        border-bottom: 1px solid var(--border);
+        text-align: left;
+      }
+
+      tr:hover {
+        background: #fafcff;
+      }
+
+      input[type="number"] {
+        width: 80px;
+        padding: 8px;
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        font-size: 14px;
+      }
+
+      input[type="number"]:focus {
+        border-color: var(--primary);
+        outline: none;
+        box-shadow: 0 0 0 3px rgba(29, 78, 216, 0.12);
+      }
+
+      input.invalid {
+        border-color: #dc2626;
+        box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.12);
+      }
+
+      .save-btn {
+        margin-top: 25px;
+        padding: 12px 30px;
+        background: var(--primary);
+        color: white;
+        border: none;
+        border-radius: 10px;
+        font-size: 15px;
+        font-weight: bold;
+        cursor: pointer;
+      }
+
+      .save-btn:hover {
+        background: var(--primary-dark);
+      }
+
+      .save-btn:disabled {
+        opacity: 0.6;
+        cursor: not-allowed;
+      }
+    </style>
+  </head>
+
+  <body>
+    <header class="topbar">
+      <div class="topbar-inner">
+        <div class="brand">
+          <div class="brand-mark">IMP</div>
+
+          <div>
+            <h3 style="margin: 0">Enter Grades</h3>
+
+            <small>Faculty Portal</small>
+          </div>
+        </div>
+
+        <button class="logout" id="backBtn">Back</button>
+      </div>
+    </header>
+
+    <div class="page">
+      <div class="card">
+        <h2 id="courseTitle">Loading...</h2>
+        <div class="meta-row" id="courseMeta"></div>
+      </div>
+
+      <div class="card">
+        <table>
+          <thead>
+            <tr>
+              <th>Roll No</th>
+              <th>Student Name</th>
+              <th>Assignment 1</th>
+              <th>Mid Exam</th>
+              <th>Assignment 2</th>
+              <th>End Sem</th>
+              <th>Internal Viva</th>
+              <th>External Viva</th>
+            </tr>
+          </thead>
+
+          <tbody id="marksBody">
+            <tr>
+              <td colspan="8">Loading students...</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <button class="save-btn" id="saveMarksBtn">Save Grades</button>
+      </div>
+    </div>
+
+    <script src="/js/api.js"></script>
+    <script>
+      const courseId = localStorage.getItem("gradeCourseId");
+      const courseName = localStorage.getItem("gradeCourseName");
+      const semester = localStorage.getItem("gradeSemester");
+      const year = localStorage.getItem("gradeYear");
+
+      const FIELDS = [
+        "assignment1",
+        "mid_exam",
+        "assignment2",
+        "end_sem",
+        "internal_viva",
+        "external_viva",
+      ];
+
+      document.getElementById("courseTitle").textContent = courseName || "Course";
+      document.getElementById("courseMeta").textContent =
+        `${courseId || ""} · Semester ${semester || "-"} · ${year || "-"}`;
+
+      function markupRow(student) {
+        const inputs = FIELDS.map(
+          (f) => `
+          <td>
+            <input
+              type="number"
+              min="0"
+              max="100"
+              step="0.01"
+              class="mark-input"
+              data-field="${f}"
+              data-id="${student.student_Id}"
+              value="${student[f] ?? ""}"
+            />
+          </td>`,
+        ).join("");
+
+        return `
+          <tr>
+            <td>${student.student_Id}</td>
+            <td>${student.first_name} ${student.last_name}</td>
+            ${inputs}
+          </tr>
+        `;
+      }
+
+      async function loadMarks() {
+        if (!courseId || !semester || !year) {
+          document.getElementById("marksBody").innerHTML =
+            '<tr><td colspan="8">Missing course context. Go back and try again.</td></tr>';
+          return;
+        }
+
+        try {
+          const res = await fetch(
+            `/faculty/course/${courseId}/marks?semester=${semester}&year=${year}`,
+          );
+          if (!res.ok) {
+            const body = await res.json().catch(() => ({}));
+            throw new Error(body.error || "Failed to load marks");
+          }
+          const students = await res.json();
+
+          if (students.length === 0) {
+            document.getElementById("marksBody").innerHTML =
+              '<tr><td colspan="8">No students enrolled in this course offering.</td></tr>';
+            return;
+          }
+
+          document.getElementById("marksBody").innerHTML = students
+            .map(markupRow)
+            .join("");
+        } catch (err) {
+          console.error(err);
+          document.getElementById("marksBody").innerHTML =
+            `<tr><td colspan="8">Unable to load marks: ${err.message}</td></tr>`;
+        }
+      }
+
+      function validateInputs() {
+        let valid = true;
+        document.querySelectorAll(".mark-input").forEach((input) => {
+          const raw = input.value.trim();
+          input.classList.remove("invalid");
+          if (raw === "") return; // blank is allowed
+          const n = Number(raw);
+          if (Number.isNaN(n) || n < 0 || n > 100) {
+            input.classList.add("invalid");
+            valid = false;
+          }
+        });
+        return valid;
+      }
+
+      function collectMarks() {
+        const byStudent = {};
+        document.querySelectorAll(".mark-input").forEach((input) => {
+          const id = input.dataset.id;
+          const field = input.dataset.field;
+          if (!byStudent[id]) byStudent[id] = { studentId: id };
+          byStudent[id][field] = input.value.trim() === "" ? null : Number(input.value);
+        });
+        return Object.values(byStudent);
+      }
+
+      function saveMarks() {
+        if (!validateInputs()) {
+          alert("Please fix invalid marks (must be between 0 and 100, or left blank).");
+          return;
+        }
+
+        const saveBtn = document.getElementById("saveMarksBtn");
+        saveBtn.disabled = true;
+        saveBtn.textContent = "Saving...";
+
+        apiFetch("/faculty/marks", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            courseId,
+            semester,
+            year,
+            marks: collectMarks(),
+          }),
+        })
+          .then(async (res) => {
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.error || "Failed to save grades");
+            alert(" Grades Saved Successfully");
+          })
+          .catch((err) => {
+            console.error(err);
+            alert(err.message || "Failed to save grades");
+          })
+          .finally(() => {
+            saveBtn.disabled = false;
+            saveBtn.textContent = "Save Grades";
+          });
+      }
+
+      document.getElementById("backBtn").addEventListener("click", () => history.back());
+      document.getElementById("saveMarksBtn").addEventListener("click", saveMarks);
+
+      loadMarks();
+    </script>
+  </body>
+</html>

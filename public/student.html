@@ -515,6 +515,54 @@
         background: #fbfdff;
       }
 
+      .course-row {
+        cursor: pointer;
+      }
+
+      .course-row td:first-child::before {
+        content: "▸";
+        display: inline-block;
+        margin-right: 8px;
+        color: var(--muted);
+        transition: transform 0.15s ease;
+      }
+
+      .course-row.expanded td:first-child::before {
+        transform: rotate(90deg);
+        color: var(--primary);
+      }
+
+      .marks-panel {
+        padding: 16px 4px;
+      }
+
+      .marks-panel table {
+        width: 100%;
+        border-collapse: collapse;
+        min-width: unset;
+      }
+
+      .marks-panel th,
+      .marks-panel td {
+        padding: 10px 12px;
+        border-bottom: 1px solid var(--border);
+        font-size: 0.86rem;
+      }
+
+      .marks-panel th {
+        background: #f8fafc;
+        color: #475569;
+        font-size: 0.72rem;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+      }
+
+      .marks-empty {
+        color: var(--muted);
+        font-size: 0.9rem;
+        padding: 8px 4px;
+      }
+
       .status-pill {
         display: inline-flex;
         align-items: center;
@@ -793,10 +841,15 @@
               ${data.courses
                 .map(
                   (c) => `
-                <tr>
+                <tr class="course-row" data-course-id="${c.course_Id}">
                   <td>${c.course_Id}</td>
                   <td>${c.course_name}</td>
                   <td>${c.faculty_name}</td>
+                </tr>
+                <tr class="marks-row" data-course-id="${c.course_Id}" style="display:none;">
+                  <td colspan="3">
+                    <div class="marks-panel" data-marks-panel="${c.course_Id}">Loading marks...</div>
+                  </td>
                 </tr>
               `,
                 )
@@ -804,6 +857,8 @@
             </tbody>
           `;
           }
+
+          loadMarksMap();
         } catch (err) {
           console.error(err);
           document.getElementById("profileCard").innerHTML =
@@ -816,6 +871,87 @@
         localStorage.clear();
         location.href = "login.html";
       }
+
+      let marksByCourse = {};
+
+      function fmtMark(v) {
+        return v === null || v === undefined ? "-" : v;
+      }
+
+      function renderMarksPanel(courseId) {
+        const panel = document.querySelector(`[data-marks-panel="${courseId}"]`);
+        const m = marksByCourse[courseId];
+
+        if (!panel) return;
+
+        if (!m) {
+          panel.innerHTML = '<div class="marks-empty">Marks not available yet.</div>';
+          return;
+        }
+
+        panel.innerHTML = `
+          <table>
+            <thead>
+              <tr>
+                <th>Assignment 1</th>
+                <th>Mid Exam</th>
+                <th>Assignment 2</th>
+                <th>End Sem</th>
+                <th>Internal Viva</th>
+                <th>External Viva</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>${fmtMark(m.assignment1)}</td>
+                <td>${fmtMark(m.mid_exam)}</td>
+                <td>${fmtMark(m.assignment2)}</td>
+                <td>${fmtMark(m.end_sem)}</td>
+                <td>${fmtMark(m.internal_viva)}</td>
+                <td>${fmtMark(m.external_viva)}</td>
+              </tr>
+            </tbody>
+          </table>
+        `;
+      }
+
+      function loadMarksMap() {
+        const userId = localStorage.getItem("userId");
+        if (!userId) return;
+
+        fetch(`/student/${userId}/marks`)
+          .then((res) => res.json())
+          .then((rows) => {
+            marksByCourse = {};
+            (rows || []).forEach((r) => {
+              marksByCourse[r.course_Id] = r;
+            });
+          })
+          .catch((err) => console.error("Error loading marks:", err));
+      }
+
+      function toggleCourseMarks(courseId, headerRow) {
+        const detailRow = document.querySelector(
+          `.marks-row[data-course-id="${courseId}"]`,
+        );
+        if (!detailRow) return;
+
+        const isOpen = detailRow.style.display !== "none";
+        if (isOpen) {
+          detailRow.style.display = "none";
+          headerRow.classList.remove("expanded");
+        } else {
+          renderMarksPanel(courseId);
+          detailRow.style.display = "table-row";
+          headerRow.classList.add("expanded");
+        }
+      }
+
+      document.getElementById("coursesTable").addEventListener("click", (e) => {
+        const row = e.target.closest(".course-row");
+        if (!row) return;
+        toggleCourseMarks(row.dataset.courseId, row);
+      });
 
       loadData();
 

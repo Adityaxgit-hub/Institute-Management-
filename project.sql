@@ -367,3 +367,24 @@ ALTER TABLE Users
 ADD COLUMN must_reset_password TINYINT(1) NOT NULL DEFAULT 1;
 
 UPDATE Users SET must_reset_password = 0;
+
+-- GRADING SYSTEM
+CREATE TABLE IF NOT EXISTS Marks (
+  mark_Id INT PRIMARY KEY AUTO_INCREMENT,
+  student_Id VARCHAR(15) NOT NULL,
+  course_Id VARCHAR(10) NOT NULL,
+  semester INT NOT NULL,
+  year INT NOT NULL,
+  assignment1 DECIMAL(5,2) NULL,
+  mid_exam DECIMAL(5,2) NULL,
+  assignment2 DECIMAL(5,2) NULL,
+  end_sem DECIMAL(5,2) NULL,
+  internal_viva DECIMAL(5,2) NULL,
+  external_viva DECIMAL(5,2) NULL,
+  updated_by INT NULL,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  FOREIGN KEY (student_Id) REFERENCES Students(student_Id),
+  FOREIGN KEY (course_Id) REFERENCES Courses(course_Id),
+  FOREIGN KEY (updated_by) REFERENCES Faculty(faculty_Id),
+  UNIQUE KEY uniq_marks (student_Id, course_Id, semester, year)
+);
