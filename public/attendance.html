@@ -211,9 +211,20 @@
 
     <script src="/js/api.js"></script>
     <script>
-      const courseId = localStorage.getItem("courseId");
-
-      const courseName = localStorage.getItem("courseName");
+      function escapeHtml(str) {
+        if (str === null || str === undefined) return "";
+        return String(str)
+          .replace(/&/g, "&amp;")
+          .replace(/</g, "&lt;")
+          .replace(/>/g, "&gt;")
+          .replace(/"/g, "&quot;")
+          .replace(/'/g, "&#039;");
+      }
+      const urlParams = new URLSearchParams(window.location.search);
+      const courseId = urlParams.get("courseId");
+      const courseName = urlParams.get("courseName");
+      const semester = urlParams.get("semester");
+      const year = urlParams.get("year");
 
       document.getElementById("courseTitle").innerHTML = courseName;
 
@@ -221,7 +232,7 @@
         .toISOString()
         .split("T")[0];
 
-      fetch(`/faculty/course/${courseId}/students`)
+      fetch(`/faculty/course/${courseId}/students?semester=${semester}&year=${year}`)
         .then((res) => res.json())
         .then((data) => {
           let html = "";
@@ -240,7 +251,7 @@
 <input
 type="checkbox"
 class="present"
-data-id="${student.student_Id}"
+data-id="${escapeHtml(student.student_Id)}"
 checked>
 
 </td>

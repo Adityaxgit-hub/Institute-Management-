@@ -1,7 +1,5 @@
 const express = require("express");
 const router = express.Router();
-const csrf = require("csurf");
-const csrfProtection = csrf({ cookie: false });
 
 function requireAuth(req, res, next) {
   if (!req.session.user) {
@@ -36,7 +34,7 @@ function parseDeptId(val) {
 }
 
 // Admin sends a notification
-router.post("/send", requireRole("admin"), csrfProtection, async (req, res) => {
+router.post("/send", requireRole("admin"), async (req, res) => {
   const { title, message, target, pdf_url, dept_Id } = req.body;
   const db = req.app.get("db");
   const io = req.app.get("io");
@@ -58,7 +56,7 @@ router.post("/send", requireRole("admin"), csrfProtection, async (req, res) => {
 });
 
 // Unread count — per user, using notification_reads join
-router.get("/unread-count", csrfProtection, async (req, res) => {
+router.get("/unread-count", async (req, res) => {
   const db = req.app.get("db");
   const role = req.session.user.role;
   const userId = req.session.user.id;
@@ -87,10 +85,10 @@ router.get("/unread-count", csrfProtection, async (req, res) => {
 });
 
 // Fetch all notifications for a user, with per-user is_read flag
-router.get("/all", csrfProtection, async (req, res) => {
+router.get("/all", async (req, res) => {
   const db = req.app.get("db");
   const role = req.session.user.role;
-const userId = req.session.user.id;
+  const userId = req.session.user.id;
   const deptId = parseDeptId(req.query.deptId);
   const personalTarget = userId ? `user_${userId}` : null;
 
@@ -117,7 +115,7 @@ const userId = req.session.user.id;
 });
 
 // Mark all visible notifications as read — per user only
-router.post("/mark-read", csrfProtection, async (req, res) => {
+router.post("/mark-read", async (req, res) => {
   const db = req.app.get("db");
   const role = req.session.user.role;
   const userId = req.session.user.id;

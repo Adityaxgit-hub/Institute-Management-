@@ -844,6 +844,15 @@
     <div class="toast" id="toast"></div>
     <script src="/js/api.js"></script>
     <script>
+      function escapeHtml(str) {
+        if (str === null || str === undefined) return "";
+        return String(str)
+          .replace(/&/g, "&amp;")
+          .replace(/</g, "&lt;")
+          .replace(/>/g, "&gt;")
+          .replace(/"/g, "&quot;")
+          .replace(/'/g, "&#039;");
+      }
       // Load departments on page load
       async function loadDepartments() {
         hideFilterBar();
@@ -899,7 +908,7 @@
             <td>${d.dept_Id}</td>
             <td>${d.dept_name}</td>
             <td>
-              <select data-action="update-hod" data-dept-id="${d.dept_Id}" style="border:1px solid var(--border);border-radius:8px;padding:6px 10px;font:inherit;">
+              <select data-action="update-hod" data-dept-id="${escapeHtml(d.dept_Id)}" style="border:1px solid var(--border);border-radius:8px;padding:6px 10px;font:inherit;">
                 <option value="">-- No HOD --</option>
                 ${facData
                   .map(
@@ -911,7 +920,7 @@
                   .join("")}
               </select>
             </td>
-            <td><button class="delete" data-action="delete-department" data-id="${d.dept_Id}">Delete</button></td>
+            <td><button class="delete" data-action="delete-department" data-id="${escapeHtml(d.dept_Id)}">Delete</button></td>
           </tr>
         `,
           )
@@ -1384,7 +1393,7 @@
               (row) => `
             <tr>
               ${row.cells.map((cell) => `<td>${cell}</td>`).join("")}
-              <td>${row.actions || `<button class="delete" data-action="delete-row" data-id="${deleteId(row)}" data-fn="${deleteFn}">Delete</button>`}</td>
+              <td>${row.actions || `<button class="delete" data-action="delete-row" data-id="${escapeHtml(deleteId(row))}" data-fn="${escapeHtml(deleteFn)}">Delete</button>`}</td>
             </tr>
           `,
             )
@@ -1460,8 +1469,8 @@
                 s.user_Id,
               ],
               actions: `
-                <button class="edit" data-action="edit" data-type="student" data-id="${s.student_Id}">Edit</button>
-                <button class="delete" data-action="delete-student" data-id="${s.student_Id}">Delete</button>
+                <button class="edit" data-action="edit" data-type="student" data-id="${escapeHtml(s.student_Id)}">Edit</button>
+                <button class="delete" data-action="delete-student" data-id="${escapeHtml(s.student_Id)}">Delete</button>
               `,
             })),
           );
@@ -1536,9 +1545,9 @@
                 f.dept_Id,
                 f.user_Id,
               ],
-             actions: `
-                <button class="edit" data-action="edit" data-type="faculty" data-id="${f.faculty_Id}">Edit</button>
-                <button class="delete" data-action="delete-faculty" data-id="${f.faculty_Id}">Delete</button>
+              actions: `
+                <button class="edit" data-action="edit" data-type="faculty" data-id="${escapeHtml(f.faculty_Id)}">Edit</button>
+                <button class="delete" data-action="delete-faculty" data-id="${escapeHtml(f.faculty_Id)}">Delete</button>
               `,
             })),
           );
@@ -1584,8 +1593,8 @@
             data.map((c) => ({
               cells: [c.course_Id, c.course_name, c.credits, c.dept_Id],
               actions: `
-                <button class="edit" data-action="edit" data-type="course" data-id="${c.course_Id}">Edit</button>
-                <button class="delete" data-action="delete-course" data-id="${c.course_Id}">Delete</button>
+                <button class="edit" data-action="edit" data-type="course" data-id="${escapeHtml(c.course_Id)}">Edit</button>
+                <button class="delete" data-action="delete-course" data-id="${escapeHtml(c.course_Id)}">Delete</button>
               `,
             })),
           );

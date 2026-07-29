@@ -1,22 +1,22 @@
-CREATE DATABASE institute;
+CREATE DATABASE IF NOT EXISTS institute;
 USE institute;
 
 -- USERS TABLE
-CREATE TABLE Users(
+CREATE TABLE if not exists Users(
   user_Id INT PRIMARY KEY AUTO_INCREMENT,
   username VARCHAR(50) UNIQUE NOT NULL,
   password VARCHAR(255) NOT NULL,
   role VARCHAR(10)
 );
 -- DEPARTMENT TABLE
-CREATE TABLE Department(
+CREATE TABLE IF NOT EXISTS Department(
   dept_Id INT PRIMARY KEY AUTO_INCREMENT,
   dept_name VARCHAR(100) NOT NULL,
   HOD_Id INT
 );
 
 -- FACULTY TABLE
-CREATE TABLE Faculty(
+CREATE TABLE IF NOT EXISTS Faculty(
   faculty_Id INT PRIMARY KEY AUTO_INCREMENT,
   first_name VARCHAR(50),
   last_name VARCHAR(50),
@@ -34,7 +34,7 @@ ALTER TABLE Department
 ADD FOREIGN KEY (HOD_Id) REFERENCES Faculty(faculty_Id);
 
 -- COURSES TABLE
-CREATE TABLE Courses(
+CREATE TABLE IF NOT EXISTS Courses(
   course_Id VARCHAR(10) PRIMARY KEY,
   course_name VARCHAR(100) NOT NULL,
   credits INT,
@@ -43,7 +43,7 @@ CREATE TABLE Courses(
 );
 
 -- STUDENTS TABLE
-CREATE TABLE Students(
+CREATE TABLE IF NOT EXISTS Students(
   student_Id VARCHAR(15) PRIMARY KEY,
   first_name VARCHAR(50),
   last_name VARCHAR(50),
@@ -58,7 +58,7 @@ CREATE TABLE Students(
 );
 
 -- ENROLLMENTS TABLE
-CREATE TABLE Enrollments(
+CREATE TABLE IF NOT EXISTS Enrollments(
   enroll_Id INT PRIMARY KEY AUTO_INCREMENT,
   student_Id VARCHAR(15),
   course_Id VARCHAR(10),
@@ -69,7 +69,7 @@ CREATE TABLE Enrollments(
 );
 
 -- TEACHES TABLE
-CREATE TABLE Teaches(
+CREATE TABLE IF NOT EXISTS Teaches(
   teach_Id INT PRIMARY KEY AUTO_INCREMENT,
   faculty_Id INT,
   course_Id VARCHAR(10),
@@ -81,7 +81,7 @@ CREATE TABLE Teaches(
 );
 
 -- ATTENDANCE TABLE
-CREATE TABLE Attendance(
+CREATE TABLE IF NOT EXISTS Attendance(
   Attd_Id INT PRIMARY KEY AUTO_INCREMENT,
   student_Id VARCHAR(15),
   course_Id VARCHAR(10),
@@ -91,7 +91,7 @@ CREATE TABLE Attendance(
   FOREIGN KEY (course_Id) REFERENCES Courses(course_Id)
 );
 
---Departments
+-- Departments
 INSERT INTO Department (dept_name) VALUES
 ('Computer Science'),
 ('Electrical Engineering'),
@@ -107,7 +107,7 @@ INSERT INTO Users (username, password, role) VALUES
 ('neha.verma', '$2b$10$/EkBLucPxklDtMmk.I8VuepDZybf5kgYhJdtppTb7a3FO3d5RNgvm', 'faculty'),
 ('suresh.reddy', '$2b$10$ivD3bPTBLwpT7Td6VDfq8upRE0pvIT.nERGVx5yxplPGfqwsQB6ha', 'faculty');
 
---Faculty Members
+-- Faculty Members
 INSERT INTO Faculty (first_name, last_name, email, phone, designation, join_date, dept_Id, user_Id)
 VALUES
 ('Ravi', 'Kumar', 'ravi.kumar@nitp.ac.in', '9000000001', 'Professor', '2015-07-12', 1, 1),
@@ -275,7 +275,7 @@ SELECT * FROM user_info;
 INSERT INTO Users (username, password, role) VALUES
 ('admin', '$2b$10$7.LqrNVhrgufIQB8l0gd9e/6BlwgKIzy7QKaKAtzJF8NfTpd8q6uu', 'admin');
 
-CREATE TABLE notifications(
+CREATE TABLE IF NOT EXISTS notifications(
   id INT PRIMARY KEY AUTO_INCREMENT,
   title VARCHAR(255) NOT NULL,
   message TEXT NOT NULL,
@@ -286,7 +286,7 @@ CREATE TABLE notifications(
 
 
 
-CREATE TABLE Faculty_Leave (
+CREATE TABLE IF NOT EXISTS Faculty_Leave (
     leave_Id INT AUTO_INCREMENT PRIMARY KEY,
     faculty_Id INT NOT NULL,
     from_date DATE NOT NULL,
@@ -310,7 +310,7 @@ ADD COLUMN pdf_url VARCHAR(500) NULL AFTER target;
 ALTER TABLE notifications 
 ADD COLUMN dept_Id INT NULL AFTER pdf_url;
 
-CREATE TABLE notification_attachments (
+CREATE TABLE IF NOT EXISTS notification_attachments (
   id INT PRIMARY KEY AUTO_INCREMENT,
   notification_id INT NOT NULL,
   file_name VARCHAR(255) NOT NULL,
@@ -334,7 +334,7 @@ WHERE student_Id = 'S001';
 
 DELETE FROM password_reset_tokens;
 
-CREATE TABLE notification_reads (
+CREATE TABLE IF NOT EXISTS notification_reads (
   id INT PRIMARY KEY AUTO_INCREMENT,
   notification_id INT NOT NULL,
   user_Id INT NOT NULL,
@@ -388,3 +388,10 @@ CREATE TABLE IF NOT EXISTS Marks (
   FOREIGN KEY (updated_by) REFERENCES Faculty(faculty_Id),
   UNIQUE KEY uniq_marks (student_Id, course_Id, semester, year)
 );
+
+ALTER TABLE Students ADD UNIQUE KEY uniq_student_user (user_Id);
+ALTER TABLE Faculty ADD UNIQUE KEY uniq_faculty_user (user_Id);
+
+-- Re-add Department.HOD_Id FK with ON DELETE SET NULL (To inspect constraint name: SHOW CREATE TABLE Department;)
+ALTER TABLE Department DROP FOREIGN KEY Department_ibfk_1;
+ALTER TABLE Department ADD CONSTRAINT fk_department_hod FOREIGN KEY (HOD_Id) REFERENCES Faculty(faculty_Id) ON DELETE SET NULL;

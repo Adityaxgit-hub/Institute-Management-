@@ -223,11 +223,21 @@
 
     <script src="/js/api.js"></script>
     <script>
-      const courseId = localStorage.getItem("gradeCourseId");
-      const courseName = localStorage.getItem("gradeCourseName");
-      const semester = localStorage.getItem("gradeSemester");
-      const year = localStorage.getItem("gradeYear");
-
+      function escapeHtml(str) {
+        if (str === null || str === undefined) return "";
+        return String(str)
+          .replace(/&/g, "&amp;")
+          .replace(/</g, "&lt;")
+          .replace(/>/g, "&gt;")
+          .replace(/"/g, "&quot;")
+          .replace(/'/g, "&#039;");
+      }
+      const urlParams = new URLSearchParams(window.location.search);
+      const courseId = urlParams.get("courseId");
+      const courseName = urlParams.get("courseName");
+      const semester = urlParams.get("semester");
+      const year = urlParams.get("year");
+      
       const FIELDS = [
         "assignment1",
         "mid_exam",
@@ -252,7 +262,7 @@
               step="0.01"
               class="mark-input"
               data-field="${f}"
-              data-id="${student.student_Id}"
+              data-id="${escapeHtml(student.student_Id)}"
               value="${student[f] ?? ""}"
             />
           </td>`,

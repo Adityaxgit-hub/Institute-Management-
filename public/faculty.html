@@ -710,6 +710,15 @@
     <script src="/js/api.js"></script>
     <script src="/socket.io/socket.io.js"></script>
     <script>
+      function escapeHtml(str) {
+        if (str === null || str === undefined) return "";
+        return String(str)
+          .replace(/&/g, "&amp;")
+          .replace(/</g, "&lt;")
+          .replace(/>/g, "&gt;")
+          .replace(/"/g, "&quot;")
+          .replace(/'/g, "&#039;");
+      }
       const socket = window.io ? io() : null;
       function formatDate(dateString) {
         if (!dateString) return "Not available";
@@ -786,18 +795,20 @@
           <button
               class="attendance-btn"
               data-action="take-attendance"
-              data-id="${t.course_Id}"
-              data-name="${t.course_name}">
+              data-id="${escapeHtml(t.course_Id)}"
+              data-name="${escapeHtml(t.course_name)}"
+              data-semester="${escapeHtml(t.semester)}"
+              data-year="${escapeHtml(t.year)}">
               📅 Take Attendance
           </button>
 
           <button
               class="attendance-btn"
               data-action="enter-grades"
-              data-id="${t.course_Id}"
-              data-name="${t.course_name}"
-              data-semester="${t.semester}"
-              data-year="${t.year}">
+              data-id="${escapeHtml(t.course_Id)}"
+              data-name="${escapeHtml(t.course_name)}"
+              data-semester="${escapeHtml(t.semester)}"
+              data-year="${escapeHtml(t.year)}">
               📊 Enter Grades
           </button>
 
@@ -836,11 +847,9 @@
         window.location.href = "login.html";
       }
 
-      function takeAttendance(courseId, courseName) {
-        localStorage.setItem("courseId", courseId);
-        localStorage.setItem("courseName", courseName);
-
-        window.location.href = "attendance.html";
+      function takeAttendance(courseId, courseName, semester, year) {
+        const params = new URLSearchParams({ courseId, courseName, semester, year });
+        window.location.href = `attendance.html?${params.toString()}`;
       }
 
       function applyLeave() {
@@ -848,12 +857,8 @@
       }
 
       function enterGrades(courseId, courseName, semester, year) {
-        localStorage.setItem("gradeCourseId", courseId);
-        localStorage.setItem("gradeCourseName", courseName);
-        localStorage.setItem("gradeSemester", semester);
-        localStorage.setItem("gradeYear", year);
-
-        window.location.href = "grades.html";
+        const params = new URLSearchParams({ courseId, courseName, semester, year });
+        window.location.href = `grades.html?${params.toString()}`;
       }
 
       loadData();
@@ -991,7 +996,7 @@ ${
         if (!btn) return;
         const action = btn.dataset.action;
         if (action === "take-attendance") {
-          takeAttendance(btn.dataset.id, btn.dataset.name);
+          takeAttendance(btn.dataset.id, btn.dataset.name, btn.dataset.semester, btn.dataset.year);
         } else if (action === "enter-grades") {
           enterGrades(btn.dataset.id, btn.dataset.name, btn.dataset.semester, btn.dataset.year);
         } else if (action === "apply-leave") {

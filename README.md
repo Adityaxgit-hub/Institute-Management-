@@ -4,12 +4,14 @@ A centralized academic administration portal built using Node.js/Express + MySQL
 
 ## Getting Started
 
-1. Set up the environment variables in `.env`.
+1. Copy `.env.example` to `.env` and set appropriate environment variables.
 2. Seed the database using `project.sql`.
 3. Start the application:
    ```bash
    node server.js
    ```
+
+> **Security Note**: Never commit `.env` or any file containing real secrets to source control. Any credential or secret (such as database passwords, session secrets, or Gmail app passwords) that has ever been exposed or committed must be rotated immediately.
 
 ## Content Security Policy (CSP)
 

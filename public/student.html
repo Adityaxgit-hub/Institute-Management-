@@ -783,6 +783,15 @@
     </main>
     <script src="/js/api.js"></script>
     <script>
+      function escapeHtml(str) {
+        if (str === null || str === undefined) return "";
+        return String(str)
+          .replace(/&/g, "&amp;")
+          .replace(/</g, "&lt;")
+          .replace(/>/g, "&gt;")
+          .replace(/"/g, "&quot;")
+          .replace(/'/g, "&#039;");
+      }
       const socket = window.io ? io() : null;
 
       function formatDate(dateString) {
@@ -841,14 +850,14 @@
               ${data.courses
                 .map(
                   (c) => `
-                <tr class="course-row" data-course-id="${c.course_Id}">
+                <tr class="course-row" data-course-id="${escapeHtml(c.course_Id)}">
                   <td>${c.course_Id}</td>
                   <td>${c.course_name}</td>
                   <td>${c.faculty_name}</td>
                 </tr>
-                <tr class="marks-row" data-course-id="${c.course_Id}" style="display:none;">
+                <tr class="marks-row" data-course-id="${escapeHtml(c.course_Id)}" style="display:none;">
                   <td colspan="3">
-                    <div class="marks-panel" data-marks-panel="${c.course_Id}">Loading marks...</div>
+                    <div class="marks-panel" data-marks-panel="${escapeHtml(c.course_Id)}">Loading marks...</div>
                   </td>
                 </tr>
               `,
