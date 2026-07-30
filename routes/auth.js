@@ -5,6 +5,14 @@ const crypto = require("crypto");
 const nodemailer = require("nodemailer");
 const { maybeLoginLimiter, sensitiveLimiter } = require("../middleware/auth");
 
+const transporter = nodemailer.createTransport({
+  service: "gmail",
+  auth: {
+    user: process.env.GMAIL_USER,
+    pass: process.env.GMAIL_APP_PASSWORD,
+  },
+});
+
 const saltRounds = 10;
 const MAX_ATTEMPTS = 5;
 const LOCK_DURATION_MS = 15 * 60 * 1000; // 15 minutes
@@ -127,14 +135,6 @@ router.post("/signup/request-otp", sensitiveLimiter, async (req, res) => {
       "INSERT INTO signup_otps (email, otp_hash, role, record_id, expires_at) VALUES (?, ?, ?, ?, ?)",
       [email, otpHash, role, records[0].recordId, expiresAt],
     );
-
-    const transporter = nodemailer.createTransport({
-      service: "gmail",
-      auth: {
-        user: process.env.GMAIL_USER,
-        pass: process.env.GMAIL_APP_PASSWORD,
-      },
-    });
 
     await transporter.sendMail({
       from: `"Institute Portal" <${process.env.GMAIL_USER}>`,
@@ -310,14 +310,6 @@ router.post("/forgot-password", sensitiveLimiter, async (req, res) => {
     const baseUrl =
       process.env.APP_BASE_URL || `${req.protocol}://${req.get("host")}`;
     const resetLink = `${baseUrl}/reset-password.html?token=${token}`;
-
-    const transporter = nodemailer.createTransport({
-      service: "gmail",
-      auth: {
-        user: process.env.GMAIL_USER,
-        pass: process.env.GMAIL_APP_PASSWORD,
-      },
-    });
 
     await transporter.sendMail({
       from: `"Institute Portal" <${process.env.GMAIL_USER}>`,

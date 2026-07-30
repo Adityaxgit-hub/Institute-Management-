@@ -181,12 +181,27 @@ router.post(
       return res.status(400).json({ error: "No CSV file uploaded, or file must be .csv" });
     }
 
+    const { isUtf8 } = require("buffer");
+    if (!isUtf8(req.file.buffer)) {
+      return res.status(400).json({ error: "File content is not valid UTF-8 text." });
+    }
+
+    const fileContent = req.file.buffer.toString("utf-8");
+    if (fileContent.includes("\0")) {
+      return res.status(400).json({ error: "File content contains binary characters." });
+    }
+
     try {
-      const records = parseCsv(req.file.buffer.toString("utf-8"), {
-        columns: true,
-        skip_empty_lines: true,
-        trim: true,
-      });
+      let records;
+      try {
+        records = parseCsv(fileContent, {
+          columns: true,
+          skip_empty_lines: true,
+          trim: true,
+        });
+      } catch (parseErr) {
+        return res.status(400).json({ error: "Failed to parse CSV. Please check the file format." });
+      }
 
       if (records.length === 0) {
         return res.status(400).json({ error: "CSV file is empty." });

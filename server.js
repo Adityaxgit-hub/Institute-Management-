@@ -1,6 +1,15 @@
 require("dotenv").config({
   path: process.env.NODE_ENV === "test" ? ".env.test" : ".env",
 });
+
+if (process.env.NODE_ENV === "production") {
+  const requiredEnvVars = ["SESSION_SECRET", "DB_HOST", "DB_USER", "DB_PASSWORD", "DB_NAME"];
+  for (const envVar of requiredEnvVars) {
+    if (!process.env[envVar]) {
+      throw new Error(`CRITICAL STARTUP ERROR: Environment variable ${envVar} is required in production!`);
+    }
+  }
+}
 const express = require("express");
 const http = require("http");
 const { Server } = require("socket.io");
@@ -21,6 +30,8 @@ const facultyRouter = require("./routes/faculty");
 const adminRouter = require("./routes/admin");
 
 const app = express();
+
+app.set("trust proxy", 1);
 
 let cspHashes = { scriptHashes: [] };
 try {
@@ -64,10 +75,15 @@ app.use(
     secret: process.env.SESSION_SECRET || "DefaultSecret",
     resave: false,
     saveUninitialized: false,
-    cookie: { secure: false, maxAge: 60 * 60 * 1000 },
+    cookie: {
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "lax",
+      maxAge: 60 * 60 * 1000,
+    },
   }),
 );
 
+// NOTE: csurf is deprecated/unmaintained per npm and should be replaced with a maintained CSRF solution (e.g., csrf-csrf) in a future pass.
 const csrfProtection = csrf({ cookie: false });
 app.use(csrfProtection);
 app.use(express.static("public"));

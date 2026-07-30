@@ -280,8 +280,8 @@ CREATE TABLE IF NOT EXISTS notifications(
   title VARCHAR(255) NOT NULL,
   message TEXT NOT NULL,
   target VARCHAR(10) DEFAULT 'all', -- 'student', 'faculty', 'admin'
-  is_read TINYINT(1) DEFAULT 0,
-  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+  is_read TINYINT(1) NOT NULL DEFAULT 0,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
 
@@ -395,3 +395,5 @@ ALTER TABLE Faculty ADD UNIQUE KEY uniq_faculty_user (user_Id);
 -- Re-add Department.HOD_Id FK with ON DELETE SET NULL (To inspect constraint name: SHOW CREATE TABLE Department;)
 ALTER TABLE Department DROP FOREIGN KEY Department_ibfk_1;
 ALTER TABLE Department ADD CONSTRAINT fk_department_hod FOREIGN KEY (HOD_Id) REFERENCES Faculty(faculty_Id) ON DELETE SET NULL;
+
+ALTER TABLE notifications MODIFY COLUMN target VARCHAR(50) DEFAULT 'all';

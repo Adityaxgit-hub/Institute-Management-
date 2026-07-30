@@ -284,10 +284,10 @@ router.post("/faculty/marks", requireRole("faculty"), async (req, res) => {
 // FACULTY - APPLY LEAVE
 router.post("/faculty/apply-leave", requireRole("faculty"), async (req, res) => {
   try {
-    const { facultyId, fromDate, toDate, reason } = req.body;
+    const { fromDate, toDate, reason } = req.body;
     const db = req.app.get("db");
 
-    if (!facultyId || !fromDate || !toDate || !reason) {
+    if (!fromDate || !toDate || !reason) {
       return res.status(400).json({
         message: "Missing leave application fields.",
       });
@@ -297,9 +297,8 @@ router.post("/faculty/apply-leave", requireRole("faculty"), async (req, res) => 
       `SELECT faculty_Id
          FROM Faculty
          WHERE user_Id=?
-         OR faculty_Id=?
          LIMIT 1`,
-      [facultyId, facultyId],
+      [req.session.user.id],
     );
 
     if (lookupResult.length === 0) {
