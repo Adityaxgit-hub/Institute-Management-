@@ -33,11 +33,13 @@ router.get("/student/:userId", requireRole("student"), async (req, res) => {
     const coursesQuery = `
       SELECT c.course_Id,
              c.course_name,
-             CONCAT(f.first_name,' ',f.last_name) AS faculty_name
+             CONCAT(f.first_name,' ',f.last_name) AS faculty_name,
+             e.semester,
+             e.year
       FROM Enrollments e
       JOIN Courses c ON e.course_Id = c.course_Id
-      JOIN Teaches t ON c.course_Id = t.course_Id
-      JOIN Faculty f ON t.faculty_Id = f.faculty_Id
+      LEFT JOIN Teaches t ON c.course_Id = t.course_Id AND e.semester = t.semester AND e.year = t.year
+      LEFT JOIN Faculty f ON t.faculty_Id = f.faculty_Id
       WHERE e.student_Id = ?;
     `;
 

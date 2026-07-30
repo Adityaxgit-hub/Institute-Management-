@@ -81,6 +81,46 @@ async function notifyFacultyLeaveDecision(db, io, leaveId, decision) {
   }
 }
 
+// STUDENTS MIGRATION (one-time) 
+// Adds admission_year and current_semester columns if missing, then seeds defaults.
+router.post("/admin/students/migrate-semester", requireRole("admin"), async (req, res) => {
+  const db = req.app.get("db");
+  try {
+    // Check existing columns before altering
+    const [cols] = await db.query("SHOW COLUMNS FROM Students");
+    const colNames = cols.map((c) => c.Field);
+
+    if (!colNames.includes("admission_year")) {
+      await db.query("ALTER TABLE Students ADD COLUMN admission_year INT DEFAULT NULL");
+    }
+    if (!colNames.includes("current_semester")) {
+      await db.query("ALTER TABLE Students ADD COLUMN current_semester INT DEFAULT NULL");
+    }
+
+    // Each semester = 6 months from Jan 1 of admission_year, capped 1-8
+    const [r] = await db.query(`
+      UPDATE Students
+      SET
+        admission_year = COALESCE(admission_year, 2023),
+        current_semester = COALESCE(
+          current_semester,
+          LEAST(8, GREATEST(1,
+            FLOOR(TIMESTAMPDIFF(MONTH, MAKEDATE(COALESCE(admission_year, 2023), 1), NOW()) / 6) + 1
+          ))
+        )
+      WHERE admission_year IS NULL OR current_semester IS NULL
+    `);
+
+    res.json({
+      message: `Migration complete: columns ensured, ${r.affectedRows} rows seeded.`,
+    });
+  } catch (err) {
+    console.error("Migration error:", err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+
 // ------------- STUDENTS CRUD -------------
 router.get("/admin/students", requireRole("admin"), async (req, res) => {
   const db = req.app.get("db");
@@ -130,11 +170,11 @@ router.get("/admin/students/export", requireRole("admin"), async (req, res) => {
   const db = req.app.get("db");
   try {
     const [rows] = await db.query(
-      `SELECT student_Id, first_name, last_name, email, phone, DOB, admission_date, dept_Id
+      `SELECT student_Id, first_name, last_name, email, phone, DOB, admission_date, dept_Id, admission_year, current_semester
        FROM Students ORDER BY student_Id`,
     );
 
-    const header = "student_Id,first_name,last_name,email,phone,DOB,admission_date,dept_Id";
+    const header = "student_Id,first_name,last_name,email,phone,DOB,admission_date,dept_Id,admission_year,current_semester";
 
     const csvEscape = (val) => {
       if (val === null || val === undefined) return "";
@@ -155,6 +195,8 @@ router.get("/admin/students/export", requireRole("admin"), async (req, res) => {
         r.DOB ? new Date(r.DOB).toISOString().split("T")[0] : "",
         r.admission_date ? new Date(r.admission_date).toISOString().split("T")[0] : "",
         r.dept_Id,
+        r.admission_year ?? "",
+        r.current_semester ?? "",
       ]
         .map(csvEscape)
         .join(","),
@@ -284,12 +326,12 @@ router.post(
 
       for (const s of validRows) {
         const username = (s.first_name + s.last_name).toLowerCase().replace(/[^a-z0-9]/g, "");
-        const password = crypto.randomBytes(6).toString("hex");
+        const password = s.first_name.trim() + "@" + new Date().getFullYear();
         const hashedPassword = await bcrypt.hash(password, saltRounds);
 
         try {
           const [userResult] = await db.query(
-            "INSERT INTO Users (username, password, role) VALUES (?, ?, 'student')",
+            "INSERT INTO Users (username, password, role, must_reset_password) VALUES (?, ?, 'student', 1)",
             [username, hashedPassword],
           );
           const newUserId = userResult.insertId;
@@ -328,7 +370,7 @@ router.post(
 router.post("/admin/students", requireRole("admin"), async (req, res) => {
   const db = req.app.get("db");
   try {
-    const { student_Id, first_name, last_name, email, phone, DOB, dept_Id } = req.body;
+    const { student_Id, first_name, last_name, email, phone, DOB, dept_Id, admission_year, current_semester } = req.body;
 
     if (!student_Id || student_Id.trim().length > 15) {
       return res.status(400).json({ error: "Invalid or missing student_Id (max 15 chars)." });
@@ -352,8 +394,18 @@ router.post("/admin/students", requireRole("admin"), async (req, res) => {
       return res.status(400).json({ error: "Missing dept_Id." });
     }
 
+    // Compute current_semester from admission_year if not supplied:
+    // Each semester = 6 months. semester = floor(monthsSinceAdmission / 6) + 1, capped 1-8.
+    const admYr = parseInt(admission_year) || new Date().getFullYear();
+    let semValue = parseInt(current_semester);
+    if (!semValue || semValue < 1 || semValue > 8) {
+      const admissionStart = new Date(admYr, 0, 1);
+      const monthsElapsed = (new Date() - admissionStart) / (1000 * 60 * 60 * 24 * 30.44);
+      semValue = Math.min(8, Math.max(1, Math.floor(monthsElapsed / 6) + 1));
+    }
+
     const username = first_name.trim().concat(last_name.trim()).toLowerCase().replace(/[^a-z0-9]/g, "");
-    const password = crypto.randomBytes(6).toString("hex");
+    const password = first_name.trim() + "@" + admYr;
     const hashedPassword = await bcrypt.hash(password, saltRounds);
 
     const [userResult] = await db.query(
@@ -367,9 +419,9 @@ router.post("/admin/students", requireRole("admin"), async (req, res) => {
       await db.query(
         `INSERT INTO Students
         (student_Id, first_name, last_name, email, phone, DOB,
-         admission_date, dept_Id, user_Id)
-         VALUES (?, ?, ?, ?, ?, ?, CURDATE(), ?, ?)`,
-        [student_Id.trim(), first_name.trim(), last_name.trim(), email.trim(), phone.trim(), DOB.trim(), dept_Id, newUserId],
+         admission_date, dept_Id, user_Id, admission_year, current_semester)
+         VALUES (?, ?, ?, ?, ?, ?, CURDATE(), ?, ?, ?, ?)`,
+        [student_Id.trim(), first_name.trim(), last_name.trim(), email.trim(), phone.trim(), DOB.trim(), dept_Id, newUserId, admYr, semValue],
       );
 
       res.json({
@@ -416,13 +468,24 @@ router.put("/admin/students/:id", requireRole("admin"), async (req, res) => {
   const db = req.app.get("db");
   try {
     const { id } = req.params;
-    const { first_name, last_name, email, phone, DOB, dept_Id } = req.body;
+    const { first_name, last_name, email, phone, DOB, dept_Id, admission_year, current_semester } = req.body;
+
+    // Recompute semester if admission_year changed and semester not explicitly set
+    let semValue = parseInt(current_semester);
+    if (admission_year && (!semValue || semValue < 1 || semValue > 8)) {
+      const admYr = parseInt(admission_year);
+      const admissionStart = new Date(admYr, 0, 1);
+      const monthsElapsed = (new Date() - admissionStart) / (1000 * 60 * 60 * 24 * 30.44);
+      semValue = Math.min(8, Math.max(1, Math.floor(monthsElapsed / 6) + 1));
+    }
 
     const [result] = await db.query(
       `UPDATE Students
-       SET first_name=?, last_name=?, email=?, phone=?, DOB=?, dept_Id=?
+       SET first_name=?, last_name=?, email=?, phone=?, DOB=?, dept_Id=?,
+           admission_year=?, current_semester=?
        WHERE student_Id=?`,
-      [first_name, last_name, email, phone, DOB || null, dept_Id, id],
+      [first_name, last_name, email, phone, DOB || null, dept_Id,
+       admission_year || null, semValue || null, id],
     );
 
     if (result.affectedRows === 0) {
@@ -506,7 +569,7 @@ router.post("/admin/faculty", requireRole("admin"), async (req, res) => {
     }
 
     const username = (first_name.trim() + last_name.trim()).toLowerCase().replace(/[^a-z0-9]/g, "");
-    const password = crypto.randomBytes(6).toString("hex");
+    const password = first_name.trim() + "@" + new Date().getFullYear();
     const hashedPassword = await bcrypt.hash(password, saltRounds);
 
     const [userResult] = await db.query(
@@ -836,6 +899,94 @@ router.delete("/admin/enrollments/:id", requireRole("admin"), async (req, res) =
     res.status(500).json({ error: "Something went wrong. Please try again." });
   }
 });
+
+router.get("/admin/enrollments/pre-process", requireRole("admin"), async (req, res) => {
+  const db = req.app.get("db");
+  try {
+    const { dept_Id, admission_year, semester, year } = req.query;
+    if (!dept_Id || !admission_year || !semester || !year) {
+      return res.status(400).json({ error: "All fields required" });
+    }
+
+    // Get students matching department and admission year
+    const [students] = await db.query(
+      `SELECT student_Id, CONCAT(first_name, ' ', last_name) AS student_name
+       FROM Students
+       WHERE dept_Id = ? AND admission_year = ?`,
+      [dept_Id, admission_year]
+    );
+
+    // Get courses of this department being taught in the target semester and year
+    const [courses] = await db.query(
+      `SELECT DISTINCT t.course_Id, c.course_name, CONCAT(f.first_name, ' ', f.last_name) AS faculty_name, t.section
+       FROM Teaches t
+       JOIN Courses c ON t.course_Id = c.course_Id
+       JOIN Faculty f ON t.faculty_Id = f.faculty_Id
+       WHERE c.dept_Id = ? AND t.semester = ? AND t.year = ?`,
+      [dept_Id, semester, year]
+    );
+
+    res.json({ students, courses });
+  } catch (err) {
+    console.error("GET /admin/enrollments/pre-process error:", err);
+    res.status(500).json({ error: "Something went wrong. Please try again." });
+  }
+});
+
+router.post("/admin/enrollments/bulk", requireRole("admin"), async (req, res) => {
+  const db = req.app.get("db");
+  try {
+    const { dept_Id, admission_year, semester, year } = req.body;
+    if (!dept_Id || !admission_year || !semester || !year) {
+      return res.status(400).json({ error: "All fields required" });
+    }
+
+    // Get students matching dept_Id and admission_year
+    const [students] = await db.query(
+      `SELECT student_Id FROM Students WHERE dept_Id = ? AND admission_year = ?`,
+      [dept_Id, admission_year]
+    );
+
+    // Get course IDs matching c.dept_Id, t.semester, t.year
+    const [courses] = await db.query(
+      `SELECT DISTINCT t.course_Id
+       FROM Teaches t
+       JOIN Courses c ON t.course_Id = c.course_Id
+       WHERE c.dept_Id = ? AND t.semester = ? AND t.year = ?`,
+      [dept_Id, semester, year]
+    );
+
+    if (students.length === 0) {
+      return res.status(404).json({ error: "No students found matching the criteria." });
+    }
+    if (courses.length === 0) {
+      return res.status(404).json({ error: "No subjects allocated to this department for the specified semester/year." });
+    }
+
+    let enrollCount = 0;
+    for (const student of students) {
+      for (const course of courses) {
+        const [existing] = await db.query(
+          "SELECT enroll_Id FROM Enrollments WHERE student_Id = ? AND course_Id = ? AND semester = ? AND year = ?",
+          [student.student_Id, course.course_Id, semester, year]
+        );
+        if (existing.length === 0) {
+          await db.query(
+            "INSERT INTO Enrollments (student_Id, course_Id, semester, year) VALUES (?, ?, ?, ?)",
+            [student.student_Id, course.course_Id, semester, year]
+          );
+          enrollCount++;
+        }
+      }
+    }
+
+    res.json({ message: `Successfully enrolled ${students.length} students into ${courses.length} courses (${enrollCount} new enrollments).` });
+  } catch (err) {
+    console.error("POST /admin/enrollments/bulk error:", err);
+    res.status(500).json({ error: "Something went wrong. Please try again." });
+  }
+});
+
 
 // ------------- TEACHES -------------
 router.get("/admin/teaches", requireRole("admin"), async (req, res) => {

@@ -732,9 +732,14 @@
       </section>
 
       <section>
-        <div class="section-title">
+        <div class="section-title" style="display: flex; justify-content: space-between; align-items: center;">
           <h3>Enrolled Courses</h3>
-          <span id="courseCount">0 courses</span>
+          <div style="display: flex; align-items: center; gap: 12px;">
+            <select id="semesterSelect" style="padding: 8px 16px; border-radius: 10px; border: 1px solid var(--border); background: white; font-family: inherit; font-size: 0.9rem; font-weight: 600; color: var(--text);">
+              <option value="">Loading...</option>
+            </select>
+            <span id="courseCount">0 courses</span>
+          </div>
         </div>
         <div class="dashboard-card">
           <div class="table-wrap">
@@ -803,6 +808,8 @@
         });
       }
 
+      let allCourses = [];
+
       async function loadData() {
         const userId = localStorage.getItem("userId");
         if (!userId) {
@@ -837,23 +844,50 @@
           </div>
         `;
 
-          const coursesTable = document.getElementById("coursesTable");
-          document.getElementById("courseCount").textContent =
-            `${data.courses.length} courses`;
-
-          if (data.courses.length === 0) {
-            coursesTable.innerHTML =
-              '<tbody><tr><td colspan="3" class="empty">No enrolled courses found.</td></tr></tbody>';
+          allCourses = data.courses || [];
+          
+          // Populate semester dropdown
+          const uniqueSemesters = [...new Set(allCourses.map(c => c.semester))].sort((a, b) => b - a);
+          const semesterSelect = document.getElementById("semesterSelect");
+          if (uniqueSemesters.length === 0) {
+            semesterSelect.innerHTML = '<option value="">No Semesters</option>';
           } else {
-            coursesTable.innerHTML = `
+            semesterSelect.innerHTML = uniqueSemesters.map(sem => `<option value="${sem}">Semester ${sem}</option>`).join("");
+          }
+
+          // Render latest semester courses by default
+          const defaultSemester = uniqueSemesters[0] || "";
+          semesterSelect.value = defaultSemester;
+          renderCoursesForSemester(defaultSemester);
+
+          loadMarksMap();
+        } catch (err) {
+          console.error(err);
+          document.getElementById("profileCard").innerHTML =
+            '<div class="loading">Unable to load student profile.</div>';
+          alert("Error loading data");
+        }
+      }
+
+      function renderCoursesForSemester(semester) {
+        const coursesTable = document.getElementById("coursesTable");
+        const filteredCourses = allCourses.filter(c => String(c.semester) === String(semester));
+        
+        document.getElementById("courseCount").textContent = `${filteredCourses.length} courses`;
+
+        if (filteredCourses.length === 0) {
+          coursesTable.innerHTML =
+            '<tbody><tr><td colspan="3" class="empty">No enrolled courses found for this semester.</td></tr></tbody>';
+        } else {
+          coursesTable.innerHTML = `
             <tbody>
-              ${data.courses
+              ${filteredCourses
                 .map(
                   (c) => `
                 <tr class="course-row" data-course-id="${escapeHtml(c.course_Id)}">
                   <td>${c.course_Id}</td>
                   <td>${c.course_name}</td>
-                  <td>${c.faculty_name}</td>
+                  <td>${c.faculty_name || 'Not Assigned'}</td>
                 </tr>
                 <tr class="marks-row" data-course-id="${escapeHtml(c.course_Id)}" style="display:none;">
                   <td colspan="3">
@@ -865,15 +899,12 @@
                 .join("")}
             </tbody>
           `;
-          }
-
-          loadMarksMap();
-        } catch (err) {
-          console.error(err);
-          document.getElementById("profileCard").innerHTML =
-            '<div class="loading">Unable to load student profile.</div>';
-          alert("Error loading data");
         }
+      }
+
+      function handleSemesterChange() {
+        const selectedSem = document.getElementById("semesterSelect").value;
+        renderCoursesForSemester(selectedSem);
       }
 
       function logout() {
@@ -887,9 +918,10 @@
         return v === null || v === undefined ? "-" : v;
       }
 
-      function renderMarksPanel(courseId) {
+      function renderMarksPanel(courseId, semester) {
         const panel = document.querySelector(`[data-marks-panel="${courseId}"]`);
-        const m = marksByCourse[courseId];
+        const key = `${courseId}-${semester}`;
+        const m = marksByCourse[key];
 
         if (!panel) return;
 
@@ -933,7 +965,7 @@
           .then((rows) => {
             marksByCourse = {};
             (rows || []).forEach((r) => {
-              marksByCourse[r.course_Id] = r;
+              marksByCourse[`${r.course_Id}-${r.semester}`] = r;
             });
           })
           .catch((err) => console.error("Error loading marks:", err));
@@ -950,7 +982,8 @@
           detailRow.style.display = "none";
           headerRow.classList.remove("expanded");
         } else {
-          renderMarksPanel(courseId);
+          const selectedSem = document.getElementById("semesterSelect").value;
+          renderMarksPanel(courseId, selectedSem);
           detailRow.style.display = "table-row";
           headerRow.classList.add("expanded");
         }
@@ -1093,6 +1126,7 @@ ${
         setTimeout(() => toast.remove(), 4000);
       }
       // Wire event listeners
+      document.getElementById("semesterSelect").addEventListener("change", handleSemesterChange);
       document.getElementById("notifToggleBtn").addEventListener("click", toggleNotifPanel);
       document.getElementById("markAllReadBtn").addEventListener("click", markAllRead);
       document.getElementById("logoutBtn").addEventListener("click", logout);

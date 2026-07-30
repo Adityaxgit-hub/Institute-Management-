@@ -783,8 +783,14 @@
                 style="display:none;"
               />
             </div>
+            <button
+              id="migrateSemesterBtn"
+              style="display:none; height:38px; padding:0 16px; border:1.5px solid #0f766e; border-radius:10px; background:white; color:#0f766e; font:inherit; font-size:0.82rem; font-weight:700; cursor:pointer; white-space:nowrap;"
+              title="Add admission_year & current_semester columns and seed existing rows"
+            >🔄 Seed Semester Data</button>
             <div class="record-count" id="recordCount">0</div>
           </div>
+
         </div>
 
         <div class="form-grid" id="formContainer"></div>
@@ -838,6 +844,37 @@
             Cancel
           </button>
         </div>
+      </div>
+    </div>
+    <div
+      id="credentialsModal"
+      style="display:none; position:fixed; inset:0; background:rgba(15,23,42,0.5); z-index:1000; align-items:center; justify-content:center;"
+    >
+      <div
+        style="background:white; border-radius:20px; padding:32px; width:min(400px,90vw); box-shadow:0 24px 60px rgba(15,23,42,0.2);"
+      >
+        <h3 style="margin:0 0 16px; font-size:1.3rem; color:#0f172a; text-align:center;">
+          Account Created Successfully
+        </h3>
+        <p style="color:var(--muted); font-size:0.9rem; margin-bottom:20px; text-align:center;">
+          Please copy these login credentials. The user will be required to change their password on first login.
+        </p>
+        <div style="background:var(--surface-soft); border:1px solid var(--border); border-radius:12px; padding:16px; margin-bottom:24px;">
+          <div style="margin-bottom:12px;">
+            <strong style="font-size:0.75rem; text-transform:uppercase; color:var(--muted); display:block; margin-bottom:4px;">Username</strong>
+            <span id="credUsername" style="font-family:monospace; font-size:1.1rem; color:var(--text); font-weight:600; user-select:all;"></span>
+          </div>
+          <div>
+            <strong style="font-size:0.75rem; text-transform:uppercase; color:var(--muted); display:block; margin-bottom:4px;">Temporary Password</strong>
+            <span id="credPassword" style="font-family:monospace; font-size:1.1rem; color:var(--text); font-weight:600; user-select:all;"></span>
+          </div>
+        </div>
+        <button
+          id="closeCredModalBtn"
+          style="width:100%; height:46px; border:none; border-radius:12px; background:linear-gradient(135deg,#1d4ed8,#1e3a8a); color:white; font:inherit; font-weight:700; cursor:pointer;"
+        >
+          Done
+        </button>
       </div>
     </div>
 
@@ -1083,6 +1120,8 @@
           { id: "edit_phone", key: "phone", label: "Phone" },
           { id: "edit_DOB", key: "DOB", label: "Date of Birth", type: "date" },
           { id: "edit_dept_Id", key: "dept_Id", label: "Department ID" },
+          { id: "edit_admission_year", key: "admission_year", label: "Admission Year", type: "number" },
+          { id: "edit_current_semester", key: "current_semester", label: "Semester (1-8)", type: "number" },
         ],
         faculty: [
           { id: "edit_first_name", key: "first_name", label: "First Name" },
@@ -1346,6 +1385,8 @@
         }
         document.getElementById("csvControls").style.display =
           tab === "students" ? "flex" : "none";
+        document.getElementById("migrateSemesterBtn").style.display =
+          tab === "students" ? "inline-flex" : "none";
         loadCurrentTab();
       }
 
@@ -1435,6 +1476,18 @@
               placeholder: "",
             },
             { id: "dept_Id", label: "Department ID", placeholder: "1" },
+            {
+              id: "admission_year",
+              label: "Admission Year",
+              type: "number",
+              placeholder: new Date().getFullYear().toString(),
+            },
+            {
+              id: "current_semester",
+              label: "Semester (1-8)",
+              type: "number",
+              placeholder: "Auto-computed if blank",
+            },
           ],
           "Add Student",
         );
@@ -1455,7 +1508,9 @@
               "Email",
               "Phone",
               "DOB",
-              "Department",
+              "Dept",
+              "Adm. Year",
+              "Semester",
               "User ID",
             ],
             data.map((s) => ({
@@ -1466,6 +1521,8 @@
                 s.phone,
                 s.DOB || "-",
                 s.dept_Id,
+                s.admission_year ?? "-",
+                s.current_semester ?? "-",
                 s.user_Id,
               ],
               actions: `
@@ -1626,33 +1683,117 @@
 
       async function loadEnrollments() {
         hideFilterBar();
-        renderForm(
-          [
-            {
-              id: "enroll_student_Id",
-              label: "Student ID",
-              placeholder: "S001",
-            },
-            {
-              id: "enroll_course_Id",
-              label: "Course ID",
-              placeholder: "CS101",
-            },
-            {
-              id: "enroll_semester",
-              label: "Semester",
-              type: "number",
-              placeholder: "4",
-            },
-            {
-              id: "enroll_year",
-              label: "Year",
-              type: "number",
-              placeholder: "2024",
-            },
-          ],
-          "Enroll Student",
-        );
+        
+        const formContainer = document.getElementById("formContainer");
+        // Use custom HTML with toggle tabs for Single vs Batch enrollment
+        formContainer.innerHTML = `
+          <div style="grid-column: 1 / -1; display: flex; gap: 15px; margin-bottom: 20px; border-bottom: 1px solid var(--border); padding-bottom: 12px; width: 100%;">
+            <button type="button" id="modeManualBtn" class="tab active" style="padding: 8px 16px; font-weight: 600; font-size: 0.9rem; border: none; border-bottom: 3px solid var(--primary); background: none; cursor: pointer; color: var(--primary); transition: all 0.2s;">Single Enrollment</button>
+            <button type="button" id="modeBatchBtn" class="tab" style="padding: 8px 16px; font-weight: 600; font-size: 0.9rem; border: none; background: none; cursor: pointer; color: var(--muted); transition: all 0.2s;">Batch Auto-Enrollment</button>
+          </div>
+          
+          <!-- Manual Single Enrollment Form -->
+          <div id="manualEnrollForm" style="display: contents;">
+            <div class="field">
+              <label for="enroll_student_Id">Student ID</label>
+              <input id="enroll_student_Id" type="text" placeholder="S001" />
+            </div>
+            <div class="field">
+              <label for="enroll_course_Id">Course ID</label>
+              <input id="enroll_course_Id" type="text" placeholder="CS101" />
+            </div>
+            <div class="field">
+              <label for="enroll_semester">Semester</label>
+              <input id="enroll_semester" type="number" placeholder="4" />
+            </div>
+            <div class="field">
+              <label for="enroll_year">Year</label>
+              <input id="enroll_year" type="number" placeholder="2024" />
+            </div>
+            <div class="actions" style="grid-column: 1 / -1; margin-top: 10px;">
+              <button class="add" id="manualEnrollSubmitBtn" style="height: 42px; padding: 0 24px; border: none; border-radius: 12px; background: linear-gradient(135deg, var(--primary), var(--primary-dark)); color: white; font-weight: 700; cursor: pointer; transition: all 0.2s;">Enroll Student</button>
+            </div>
+          </div>
+
+          <!-- Batch Auto-Enrollment Form -->
+          <div id="batchEnrollForm" style="display: none; width: 100%; grid-column: 1 / -1;">
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px; width: 100%;">
+              <div class="field">
+                <label for="batch_dept_Id">Department</label>
+                <select id="batch_dept_Id" style="width: 100%; height: 42px; border-radius: 10px; border: 1px solid var(--border); padding: 0 12px; font: inherit; background: white;">
+                  <option value="">Select Department</option>
+                </select>
+              </div>
+              <div class="field">
+                <label for="batch_admission_year">Admission Year</label>
+                <input id="batch_admission_year" type="number" placeholder="e.g. 2022" value="2024" />
+              </div>
+              <div class="field">
+                <label for="batch_semester">Target Semester</label>
+                <select id="batch_semester" style="width: 100%; height: 42px; border-radius: 10px; border: 1px solid var(--border); padding: 0 12px; font: inherit; background: white;">
+                  <option value="1">1</option>
+                  <option value="2">2</option>
+                  <option value="3">3</option>
+                  <option value="4" selected>4</option>
+                  <option value="5">5</option>
+                  <option value="6">6</option>
+                  <option value="7">7</option>
+                  <option value="8">8</option>
+                </select>
+              </div>
+              <div class="field">
+                <label for="batch_year">Target Academic Year</label>
+                <input id="batch_year" type="number" placeholder="e.g. 2025" value="2025" />
+              </div>
+            </div>
+            
+            <div class="actions" style="margin-top: 20px;">
+              <button class="add" id="batchPreProcessBtn" style="height: 42px; padding: 0 24px; border: none; border-radius: 12px; background: linear-gradient(135deg, var(--primary), var(--primary-dark)); color: white; font-weight: 700; cursor: pointer; transition: all 0.2s;">Filter & Preview</button>
+            </div>
+
+            <!-- Preview Panel -->
+            <div id="batchPreviewArea" style="display: none; margin-top: 25px; border-top: 1px dashed var(--border); padding-top: 20px;">
+              <h4 style="margin: 0 0 15px; font-size: 1.05rem; font-weight: 700; color: var(--text);">Batch Auto-Enrollment Preview</h4>
+              <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 20px;">
+                <div style="background: var(--surface-soft); padding: 18px; border-radius: 14px; border: 1px solid var(--border);">
+                  <h5 style="margin: 0 0 12px; color: var(--muted); font-size: 0.8rem; text-transform: uppercase; font-weight: 800; letter-spacing: 0.05em;">Students to Enroll (<span id="batchStudentCount">0</span>)</h5>
+                  <ul id="batchStudentList" style="margin: 0; padding-left: 20px; max-height: 180px; overflow-y: auto; font-size: 0.9rem; line-height: 1.6; color: var(--text);">
+                  </ul>
+                </div>
+                <div style="background: var(--surface-soft); padding: 18px; border-radius: 14px; border: 1px solid var(--border);">
+                  <h5 style="margin: 0 0 12px; color: var(--muted); font-size: 0.8rem; text-transform: uppercase; font-weight: 800; letter-spacing: 0.05em;">Courses & Assigned Faculty (<span id="batchCourseCount">0</span>)</h5>
+                  <ul id="batchCourseList" style="margin: 0; padding-left: 20px; max-height: 180px; overflow-y: auto; font-size: 0.9rem; line-height: 1.6; color: var(--text);">
+                  </ul>
+                </div>
+              </div>
+              <div style="margin-top: 20px; display: flex; justify-content: flex-end;">
+                <button class="add" id="confirmBatchBtn" style="height: 44px; padding: 0 28px; border: none; border-radius: 12px; background: linear-gradient(135deg, var(--success), #047857); color: white; font-weight: 700; cursor: pointer; transition: all 0.2s; box-shadow: 0 8px 16px rgba(4, 120, 87, 0.15);">Confirm Auto-Enrollment</button>
+              </div>
+            </div>
+          </div>
+        `;
+
+        // Attach event listeners programmatically (CSP Compliant)
+        document.getElementById("modeManualBtn").addEventListener("click", () => setEnrollmentMode('manual'));
+        document.getElementById("modeBatchBtn").addEventListener("click", () => setEnrollmentMode('batch'));
+        document.getElementById("manualEnrollSubmitBtn").addEventListener("click", addEnrollment);
+        document.getElementById("batchPreProcessBtn").addEventListener("click", preProcessBatchEnrollment);
+        document.getElementById("confirmBatchBtn").addEventListener("click", confirmBatchEnrollment);
+
+        // Load departments for batch dropdown
+        try {
+          const res = await fetch("/admin/departments");
+          const depts = await res.json();
+          const batchDeptSelect = document.getElementById("batch_dept_Id");
+          depts.forEach((d) => {
+            const opt = document.createElement("option");
+            opt.value = d.dept_Id;
+            opt.textContent = d.dept_name;
+            batchDeptSelect.appendChild(opt);
+          });
+        } catch (e) {
+          console.error("Failed to load departments for batch form", e);
+        }
 
         const table = document.getElementById("dataTable");
         table.innerHTML =
@@ -1690,6 +1831,92 @@
           console.error(e);
           table.innerHTML =
             '<tr><td class="empty">Unable to load enrollments.</td></tr>';
+        }
+      }
+
+      function setEnrollmentMode(mode) {
+        const manualForm = document.getElementById("manualEnrollForm");
+        const batchForm = document.getElementById("batchEnrollForm");
+        const manualBtn = document.getElementById("modeManualBtn");
+        const batchBtn = document.getElementById("modeBatchBtn");
+        
+        if (mode === 'manual') {
+          manualForm.style.display = "contents";
+          batchForm.style.display = "none";
+          manualBtn.style.color = "var(--primary)";
+          manualBtn.style.borderBottom = "3px solid var(--primary)";
+          batchBtn.style.color = "var(--muted)";
+          batchBtn.style.borderBottom = "none";
+        } else {
+          manualForm.style.display = "none";
+          batchForm.style.display = "block";
+          manualBtn.style.color = "var(--muted)";
+          manualBtn.style.borderBottom = "none";
+          batchBtn.style.color = "var(--primary)";
+          batchBtn.style.borderBottom = "3px solid var(--primary)";
+        }
+      }
+
+      async function preProcessBatchEnrollment() {
+        const dept_Id = document.getElementById("batch_dept_Id").value;
+        const admission_year = document.getElementById("batch_admission_year").value;
+        const semester = document.getElementById("batch_semester").value;
+        const year = document.getElementById("batch_year").value;
+
+        if (!dept_Id || !admission_year || !semester || !year) {
+          return showToast("Please fill all batch enrollment fields");
+        }
+
+        try {
+          const res = await fetch(`/admin/enrollments/pre-process?dept_Id=${dept_Id}&admission_year=${admission_year}&semester=${semester}&year=${year}`);
+          const data = await res.json();
+
+          const studentList = document.getElementById("batchStudentList");
+          const courseList = document.getElementById("batchCourseList");
+          
+          document.getElementById("batchStudentCount").textContent = data.students.length;
+          document.getElementById("batchCourseCount").textContent = data.courses.length;
+
+          if (data.students.length === 0) {
+            studentList.innerHTML = "<li>No matching students found</li>";
+          } else {
+            studentList.innerHTML = data.students.map(s => `<li>${escapeHtml(s.student_name)} (ID: ${escapeHtml(s.student_Id)})</li>`).join("");
+          }
+
+          if (data.courses.length === 0) {
+            courseList.innerHTML = "<li>No subjects allocated/taught in this semester</li>";
+          } else {
+            courseList.innerHTML = data.courses.map(c => `<li>${escapeHtml(c.course_name)} (${escapeHtml(c.course_Id)}) - Faculty: ${escapeHtml(c.faculty_name)} (Sec ${escapeHtml(c.section)})</li>`).join("");
+          }
+
+          document.getElementById("batchPreviewArea").style.display = "block";
+        } catch (e) {
+          console.error(e);
+          showToast("Error fetching pre-process data");
+        }
+      }
+
+      async function confirmBatchEnrollment() {
+        const dept_Id = document.getElementById("batch_dept_Id").value;
+        const admission_year = document.getElementById("batch_admission_year").value;
+        const semester = document.getElementById("batch_semester").value;
+        const year = document.getElementById("batch_year").value;
+
+        try {
+          const res = await apiFetch("/admin/enrollments/bulk", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ dept_Id, admission_year, semester, year })
+          });
+          const data = await res.json();
+          if (!res.ok) throw new Error(data.error || "Batch enrollment failed");
+          
+          showToast(data.message || "Batch enrollment completed successfully");
+          document.getElementById("batchPreviewArea").style.display = "none";
+          loadEnrollments();
+        } catch (e) {
+          console.error(e);
+          showToast(e.message || "Failed to auto-enroll students");
         }
       }
 
@@ -1870,6 +2097,8 @@
           phone: document.getElementById("phone").value,
           DOB: document.getElementById("DOB").value,
           dept_Id: document.getElementById("dept_Id").value,
+          admission_year: document.getElementById("admission_year").value,
+          current_semester: document.getElementById("current_semester").value,
         };
         try {
           const res = await apiFetch("/admin/students", {
@@ -1878,7 +2107,13 @@
             body: JSON.stringify(payload),
           });
           const data = await res.json();
-          showToast(data.message || data.error || "Student action completed");
+          if (data.login) {
+            document.getElementById("credUsername").textContent = data.login.username;
+            document.getElementById("credPassword").textContent = data.login.password;
+            document.getElementById("credentialsModal").style.display = "flex";
+          } else {
+            showToast(data.message || data.error || "Student action completed");
+          }
           loadStudents();
         } catch (e) {
           console.error(e);
@@ -1902,7 +2137,13 @@
             body: JSON.stringify(payload),
           });
           const data = await res.json();
-          showToast(data.message || data.error || "Faculty action completed");
+          if (data.login) {
+            document.getElementById("credUsername").textContent = data.login.username;
+            document.getElementById("credPassword").textContent = data.login.password;
+            document.getElementById("credentialsModal").style.display = "flex";
+          } else {
+            showToast(data.message || data.error || "Faculty action completed");
+          }
           loadFaculty();
         } catch (e) {
           console.error(e);
@@ -2095,6 +2336,26 @@
       });
       document.getElementById("submitEditBtn").addEventListener("click", submitEdit);
       document.getElementById("closeEditModalBtn").addEventListener("click", closeEditModal);
+      document.getElementById("closeCredModalBtn").addEventListener("click", () => {
+        document.getElementById("credentialsModal").style.display = "none";
+      });
+
+      document.getElementById("migrateSemesterBtn").addEventListener("click", async () => {
+        const btn = document.getElementById("migrateSemesterBtn");
+        btn.disabled = true;
+        btn.textContent = "Running...";
+        try {
+          const res = await apiFetch("/admin/students/migrate-semester", { method: "POST" });
+          const data = await res.json();
+          showToast(data.message || data.error || "Migration done");
+          loadStudents();
+        } catch (e) {
+          showToast("Migration failed: " + e.message);
+        } finally {
+          btn.disabled = false;
+          btn.textContent = "🔄 Seed Semester Data";
+        }
+      });
 
       document.getElementById("dataTable").addEventListener("click", (event) => {
         const btn = event.target.closest("button");

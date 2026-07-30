@@ -611,6 +611,61 @@
         transform: translateY(-2px);
         box-shadow: 0 12px 24px rgba(5, 150, 105, 0.25);
       }
+
+      .active-card {
+        background: linear-gradient(135deg, #ffffff, #f8fafc);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        padding: 20px;
+        box-shadow: 0 8px 20px rgba(15, 23, 42, 0.04);
+        border-left: 5px solid var(--primary);
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        transition: transform 0.2s, box-shadow 0.2s;
+      }
+      .active-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 12px 30px rgba(15, 23, 42, 0.08);
+      }
+      .active-card h4 {
+        margin: 0;
+        font-size: 1.1rem;
+        font-weight: 700;
+        color: var(--text);
+      }
+      .active-card .details {
+        font-size: 0.85rem;
+        color: var(--muted);
+        display: flex;
+        flex-wrap: wrap;
+        gap: 12px;
+        margin-top: 5px;
+      }
+      .active-card .details span {
+        background: var(--bg);
+        padding: 4px 8px;
+        border-radius: 6px;
+        font-weight: 500;
+        color: var(--text);
+      }
+      .active-row {
+        background-color: rgba(29, 78, 216, 0.04) !important;
+        border-left: 4px solid var(--primary);
+      }
+      .active-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        padding: 4px 10px;
+        background: #ecfdf5;
+        border: 1px solid #bbf7d0;
+        color: var(--success);
+        border-radius: 999px;
+        font-size: 0.75rem;
+        font-weight: 800;
+        margin-left: 8px;
+      }
     </style>
   </head>
   <body>
@@ -679,10 +734,25 @@
         <div class="loading">Loading faculty profile...</div>
       </section>
 
-      <section>
+      <section id="activeAssignmentsSection" style="display: none; margin-bottom: 24px;">
         <div class="section-title">
+          <h3>Active Teaching Assignments</h3>
+          <span id="activeAssignmentsYear">Academic Year</span>
+        </div>
+        <div id="activeCardsContainer" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 20px;">
+          <!-- Active courses cards -->
+        </div>
+      </section>
+
+      <section>
+        <div class="section-title" style="display: flex; justify-content: space-between; align-items: center;">
           <h3>Courses You Teach</h3>
-          <span id="courseCount">0 courses</span>
+          <div style="display: flex; align-items: center; gap: 12px;">
+            <select id="activeYearSelect" style="padding: 8px 16px; border-radius: 10px; border: 1px solid var(--border); background: white; font-family: inherit; font-size: 0.9rem; font-weight: 600; color: var(--text);">
+              <option value="">Loading Year...</option>
+            </select>
+            <span id="courseCount">0 courses</span>
+          </div>
         </div>
         <div class="dashboard-card">
           <div class="table-wrap">
@@ -729,6 +799,8 @@
         });
       }
 
+      let allTeaches = [];
+
       async function loadData() {
         const userId = localStorage.getItem("userId");
         if (!userId) {
@@ -771,60 +843,22 @@
                 </div>
               `;
 
-          const table = document.getElementById("teachesTable");
-          document.getElementById("courseCount").textContent =
-            `${data.teaches.length} courses`;
-
-          if (data.teaches.length === 0) {
-            table.innerHTML =
-              '<tbody><tr><td colspan="6" class="empty">No teaching assignments found.</td></tr></tbody>';
+          allTeaches = data.teaches || [];
+          
+          // Populate year dropdown filter
+          const uniqueYears = [...new Set(allTeaches.map(t => t.year))].sort((a, b) => b - a);
+          const activeYearSelect = document.getElementById("activeYearSelect");
+          if (uniqueYears.length === 0) {
+            activeYearSelect.innerHTML = '<option value="">No Assignments</option>';
           } else {
-            table.innerHTML = `
-                  <tbody>
-                    ${data.teaches
-                      .map(
-                        (t) => `
-                      <tr>
-                        <td>${t.course_Id}</td>
-                        <td>${t.course_name}</td>
-                        <td><span class="badge">${t.section}</span></td>
-                        <td>Semester ${t.semester}</td>
-                        <td>${t.year}</td>
-
-                        <td>
-          <button
-              class="attendance-btn"
-              data-action="take-attendance"
-              data-id="${escapeHtml(t.course_Id)}"
-              data-name="${escapeHtml(t.course_name)}"
-              data-semester="${escapeHtml(t.semester)}"
-              data-year="${escapeHtml(t.year)}">
-              📅 Take Attendance
-          </button>
-
-          <button
-              class="attendance-btn"
-              data-action="enter-grades"
-              data-id="${escapeHtml(t.course_Id)}"
-              data-name="${escapeHtml(t.course_name)}"
-              data-semester="${escapeHtml(t.semester)}"
-              data-year="${escapeHtml(t.year)}">
-              📊 Enter Grades
-          </button>
-
-          <button class="leave-btn" data-action="apply-leave">
-          📝 Apply Leave
-      </button>
-
-      </td>
-
-                        </tr>
-                    `,
-                      )
-                      .join("")}
-                  </tbody>
-                `;
+            activeYearSelect.innerHTML = uniqueYears.map(yr => `<option value="${yr}">${yr}</option>`).join("");
           }
+
+          // Default selection to the latest year
+          const defaultYear = uniqueYears[0] || "";
+          activeYearSelect.value = defaultYear;
+          renderTeachesForYear(defaultYear);
+
         } catch (err) {
           console.error(err);
           document.getElementById("facultyInfo").innerHTML =
@@ -840,6 +874,104 @@
             window.location.href = "login.html";
           }
         }
+      }
+
+      function renderTeachesForYear(year) {
+        const table = document.getElementById("teachesTable");
+        document.getElementById("courseCount").textContent = `${allTeaches.length} courses`;
+
+        // Render Active Cards
+        const activeTeaches = allTeaches.filter(t => String(t.year) === String(year));
+        const activeSection = document.getElementById("activeAssignmentsSection");
+        const activeCardsContainer = document.getElementById("activeCardsContainer");
+        const activeYearTitle = document.getElementById("activeAssignmentsYear");
+
+        if (activeTeaches.length > 0) {
+          activeSection.style.display = "block";
+          activeYearTitle.textContent = `Academic Year ${year}`;
+          activeCardsContainer.innerHTML = activeTeaches.map(t => `
+            <div class="active-card">
+              <h4 style="margin:0; font-size:1.05rem;">${escapeHtml(t.course_name)} (${escapeHtml(t.course_Id)})</h4>
+              <div class="details">
+                <span>Sec ${escapeHtml(t.section)}</span>
+                <span>Semester ${escapeHtml(t.semester)}</span>
+                <span>Year ${escapeHtml(t.year)}</span>
+              </div>
+              <div style="margin-top: 10px; display: flex; gap: 8px;">
+                <button class="attendance-btn" data-action="take-attendance" data-id="${escapeHtml(t.course_Id)}" data-name="${escapeHtml(t.course_name)}" data-semester="${escapeHtml(t.semester)}" data-year="${escapeHtml(t.year)}" style="padding: 6px 12px; font-size: 0.8rem; height: 32px; box-shadow: none;">📅 Take Attendance</button>
+                <button class="attendance-btn" data-action="enter-grades" data-id="${escapeHtml(t.course_Id)}" data-name="${escapeHtml(t.course_name)}" data-semester="${escapeHtml(t.semester)}" data-year="${escapeHtml(t.year)}" style="padding: 6px 12px; font-size: 0.8rem; height: 32px; background: linear-gradient(135deg, #0f766e, #1d4ed8); box-shadow: none;">📊 Enter Grades</button>
+              </div>
+            </div>
+          `).join("");
+        } else {
+          activeSection.style.display = "none";
+        }
+
+        // Render Full Table with active courses highlighted
+        if (allTeaches.length === 0) {
+          table.innerHTML =
+            '<tbody><tr><td colspan="6" class="empty">No teaching assignments found.</td></tr></tbody>';
+        } else {
+          table.innerHTML = `
+            <thead>
+              <tr>
+                <th>Course ID</th>
+                <th>Course Name</th>
+                <th>Section</th>
+                <th>Semester</th>
+                <th>Year</th>
+                <th>Action</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${allTeaches
+                .map((t) => {
+                  const isActive = String(t.year) === String(year);
+                  const rowClass = isActive ? "active-row" : "";
+                  const badgeHtml = isActive ? `<span class="active-badge">🟢 Active</span>` : "";
+
+                  return `
+                    <tr class="${rowClass}">
+                      <td>${t.course_Id}</td>
+                      <td>${t.course_name}${badgeHtml}</td>
+                      <td><span class="badge">${t.section}</span></td>
+                      <td>Semester ${t.semester}</td>
+                      <td>${t.year}</td>
+                      <td>
+                        <button
+                          class="attendance-btn"
+                          data-action="take-attendance"
+                          data-id="${escapeHtml(t.course_Id)}"
+                          data-name="${escapeHtml(t.course_name)}"
+                          data-semester="${escapeHtml(t.semester)}"
+                          data-year="${escapeHtml(t.year)}">
+                          📅 Take Attendance
+                        </button>
+                        <button
+                          class="attendance-btn"
+                          data-action="enter-grades"
+                          data-id="${escapeHtml(t.course_Id)}"
+                          data-name="${escapeHtml(t.course_name)}"
+                          data-semester="${escapeHtml(t.semester)}"
+                          data-year="${escapeHtml(t.year)}">
+                          📊 Enter Grades
+                        </button>
+                        <button class="leave-btn" data-action="apply-leave">
+                          📝 Apply Leave
+                        </button>
+                      </td>
+                    </tr>
+                  `;
+                })
+                .join("")}
+            </tbody>
+          `;
+        }
+      }
+
+      function handleYearChange() {
+        const selectedYear = document.getElementById("activeYearSelect").value;
+        renderTeachesForYear(selectedYear);
       }
 
       function logout() {
@@ -987,6 +1119,7 @@ ${
         setTimeout(() => toast.remove(), 4000);
       }
       // Wire event listeners
+      document.getElementById("activeYearSelect").addEventListener("change", handleYearChange);
       document.getElementById("notifToggleBtn").addEventListener("click", toggleNotifPanel);
       document.getElementById("markAllReadBtn").addEventListener("click", markAllRead);
       document.getElementById("logoutBtn").addEventListener("click", logout);
@@ -1001,6 +1134,17 @@ ${
           enterGrades(btn.dataset.id, btn.dataset.name, btn.dataset.semester, btn.dataset.year);
         } else if (action === "apply-leave") {
           applyLeave();
+        }
+      });
+
+      document.getElementById("activeCardsContainer").addEventListener("click", (e) => {
+        const btn = e.target.closest("button");
+        if (!btn) return;
+        const action = btn.dataset.action;
+        if (action === "take-attendance") {
+          takeAttendance(btn.dataset.id, btn.dataset.name, btn.dataset.semester, btn.dataset.year);
+        } else if (action === "enter-grades") {
+          enterGrades(btn.dataset.id, btn.dataset.name, btn.dataset.semester, btn.dataset.year);
         }
       });
     </script>
