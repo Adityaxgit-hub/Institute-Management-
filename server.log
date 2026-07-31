@@ -1,0 +1,15 @@
+[2026-07-31T22:50:50.350Z] GET /csrf-token - session: null
+[2026-07-31T22:50:50.391Z] POST /login - session: null
+[2026-07-31T22:50:50.667Z] GET /admin.html - session: {"id":16,"name":"admin","role":"admin","mustReset":false}
+[2026-07-31T22:50:50.723Z] GET /js/api.js - session: {"id":16,"name":"admin","role":"admin","mustReset":false}
+[2026-07-31T22:50:50.730Z] GET /js/notifications.js - session: {"id":16,"name":"admin","role":"admin","mustReset":false}
+[2026-07-31T22:50:50.747Z] GET /notifications/unread-count?role=admin&userId=16&deptId= - session: {"id":16,"name":"admin","role":"admin","mustReset":false}
+[2026-07-31T22:50:50.790Z] GET /admin/departments - session: {"id":16,"name":"admin","role":"admin","mustReset":false}
+[2026-07-31T22:50:50.837Z] GET /admin/departments - session: {"id":16,"name":"admin","role":"admin","mustReset":false}
+[2026-07-31T22:50:50.849Z] GET /admin/students?page=1&limit=10 - session: {"id":16,"name":"admin","role":"admin","mustReset":false}
+[2026-07-31T22:50:51.680Z] GET /api/notifications/all?role=admin&userId=16&deptId= - session: {"id":16,"name":"admin","role":"admin","mustReset":false}
+[2026-07-31T22:50:54.432Z] GET /csrf-token - session: {"id":16,"name":"admin","role":"admin","mustReset":false}
+[2026-07-31T22:50:54.442Z] POST /api/notifications/mark-read?role=admin&userId=16&deptId= - session: {"id":16,"name":"admin","role":"admin","mustReset":false}
+[2026-07-31T22:50:54.475Z] GET /api/notifications/all?role=admin&userId=16&deptId= - session: {"id":16,"name":"admin","role":"admin","mustReset":false}
+[2026-07-31T22:51:05.718Z] GET /login.html - session: {"id":16,"name":"admin","role":"admin","mustReset":false}
+[2026-07-31T22:51:05.762Z] GET /js/api.js - session: {"id":16,"name":"admin","role":"admin","mustReset":false}

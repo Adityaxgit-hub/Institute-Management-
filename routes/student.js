@@ -72,7 +72,7 @@ router.get("/student/:userId", requireRole("student"), async (req, res) => {
 });
 
 // ---------------- STUDENT ATTENDANCE BY COURSE ----------------
-router.get("/student/:userId/attendance-summary", requireRole("student"), async (req, res) => {
+router.get("/student/:userId/semesters", requireRole("student"), async (req, res) => {
   const { userId } = req.params;
   const db = req.app.get("db");
 
@@ -92,8 +92,44 @@ router.get("/student/:userId/attendance-summary", requireRole("student"), async 
 
     const studentId = studentResults[0].student_Id;
 
-    const [overall] = await db.query(
-      `SELECT
+    const [semesters] = await db.query(
+      `SELECT DISTINCT semester, year
+       FROM Enrollments
+       WHERE student_Id = ?
+       ORDER BY year DESC, semester DESC`,
+      [studentId]
+    );
+
+    res.json(semesters);
+  } catch (err) {
+    console.error("GET /student/:userId/semesters error:", err);
+    res.status(500).json({ error: "Unable to load semesters." });
+  }
+});
+
+router.get("/student/:userId/attendance-summary", requireRole("student"), async (req, res) => {
+  const { userId } = req.params;
+  const db = req.app.get("db");
+
+  if (String(req.session.user.id) !== String(userId)) {
+    return res.status(403).json({ message: "Not authorized." });
+  }
+
+  try {
+    const [studentResults] = await db.query(
+      "SELECT student_Id FROM Students WHERE user_Id = ?",
+      [userId],
+    );
+
+    if (studentResults.length === 0) {
+      return res.status(404).json({ message: "Student not found" });
+    }
+
+    const studentId = studentResults[0].student_Id;
+    const { semester, year } = req.query;
+
+    let overallQuery = `
+      SELECT
          c.course_Id,
          c.course_name,
          CONCAT(f.first_name, ' ', f.last_name) AS faculty_name,
@@ -101,13 +137,21 @@ router.get("/student/:userId/attendance-summary", requireRole("student"), async 
          COUNT(a.Attd_Id) AS total_days
        FROM Enrollments e
        JOIN Courses c ON e.course_Id = c.course_Id
-       LEFT JOIN Teaches t ON c.course_Id = t.course_Id
+       LEFT JOIN Teaches t ON c.course_Id = t.course_Id AND e.semester = t.semester AND e.year = t.year
        LEFT JOIN Faculty f ON t.faculty_Id = f.faculty_Id
        LEFT JOIN Attendance a ON a.course_Id = c.course_Id AND a.student_Id = e.student_Id
        WHERE e.student_Id = ?
-       GROUP BY c.course_Id, c.course_name, f.first_name, f.last_name`,
-      [studentId],
-    );
+    `;
+    const params = [studentId];
+
+    if (semester && year) {
+      overallQuery += ` AND e.semester = ? AND e.year = ?`;
+      params.push(Number(semester), Number(year));
+    }
+
+    overallQuery += ` GROUP BY c.course_Id, c.course_name, f.first_name, f.last_name`;
+
+    const [overall] = await db.query(overallQuery, params);
 
     const [monthly] = await db.query(
       `SELECT

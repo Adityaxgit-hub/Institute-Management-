@@ -223,6 +223,11 @@
         font-size: 0.82rem;
         color: var(--muted);
       }
+      
+      .modern-select:hover {
+        border-color: #94a3b8;
+        box-shadow: 0 6px 16px rgba(15, 23, 42, 0.06);
+      }
     </style>
   </head>
 
@@ -247,7 +252,39 @@
 
     <div class="page">
       <div class="card">
-        <h2>Attendance by Course</h2>
+        <div class="header-with-action" style="display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 24px; border-bottom: 1px solid var(--border, #cbd5e1); padding-bottom: 16px;">
+          <h2 style="margin: 0;">Attendance by Course</h2>
+          <div class="select-wrapper" style="position: relative;">
+            <select id="semesterSelect" class="modern-select" style="
+              appearance: none;
+              -webkit-appearance: none;
+              background-color: #fff;
+              border: 1px solid var(--border, #cbd5e1);
+              border-radius: 12px;
+              padding: 10px 36px 10px 16px;
+              font-family: inherit;
+              font-size: 0.9rem;
+              font-weight: 600;
+              color: var(--text, #0f172a);
+              cursor: pointer;
+              box-shadow: 0 4px 12px rgba(15, 23, 42, 0.03);
+              transition: border-color 0.2s ease, box-shadow 0.2s ease;
+            ">
+              <option>Loading Semesters...</option>
+            </select>
+            <span style="
+              position: absolute;
+              right: 14px;
+              top: 50%;
+              transform: translateY(-50%);
+              width: 10px;
+              height: 6px;
+              background-color: var(--text, #0f172a);
+              clip-path: polygon(100% 0, 0 0, 50% 100%);
+              pointer-events: none;
+            "></span>
+          </div>
+        </div>
         <div class="course-grid" id="courseGrid">
           <p>Loading attendance...</p>
         </div>
@@ -307,26 +344,63 @@
       }
 
       const userId = localStorage.getItem("userId");
+      const semesterSelect = document.getElementById("semesterSelect");
+      const grid = document.getElementById("courseGrid");
 
-      fetch(`/student/${userId}/attendance-summary`)
+      // Load distinct semesters first
+      fetch(`/student/${userId}/semesters`)
         .then((res) => res.json())
-        .then((data) => {
-          const grid = document.getElementById("courseGrid");
-
-          if (!Array.isArray(data) || data.length === 0) {
+        .then((semesters) => {
+          if (!Array.isArray(semesters) || semesters.length === 0) {
+            semesterSelect.innerHTML = "<option>No Semesters</option>";
             grid.innerHTML = `<p>No enrolled courses found.</p>`;
             return;
           }
 
-          grid.innerHTML = data.map(buildCourseCard).join("");
+          // Populate dropdown options
+          semesterSelect.innerHTML = semesters
+            .map(
+              (item) =>
+                `<option value="${item.semester}-${item.year}">Semester ${item.semester} (${item.year})</option>`
+            )
+            .join("");
+
+          // Load attendance for the most recent semester/year
+          const [initialSem, initialYear] = semesterSelect.value.split("-");
+          loadAttendanceSummary(initialSem, initialYear);
         })
         .catch((err) => {
-          console.error(err);
-          document.getElementById("courseGrid").innerHTML =
-            `<p>Unable to load attendance data.</p>`;
+          console.error("Error loading semesters:", err);
+          semesterSelect.innerHTML = "<option>Error loading</option>";
+          grid.innerHTML = `<p>Unable to load semesters.</p>`;
         });
+
+      // Load attendance summary for specified semester and year
+      function loadAttendanceSummary(semester, year) {
+        grid.innerHTML = "<p>Loading attendance...</p>";
+        fetch(`/student/${userId}/attendance-summary?semester=${semester}&year=${year}`)
+          .then((res) => res.json())
+          .then((data) => {
+            if (!Array.isArray(data) || data.length === 0) {
+              grid.innerHTML = `<p>No attendance records for this semester.</p>`;
+              return;
+            }
+            grid.innerHTML = data.map(buildCourseCard).join("");
+          })
+          .catch((err) => {
+            console.error(err);
+            grid.innerHTML = `<p>Unable to load attendance data.</p>`;
+          });
+      }
+
+      // Event listener for dropdown changes
+      semesterSelect.addEventListener("change", (e) => {
+        const [sem, year] = e.target.value.split("-");
+        loadAttendanceSummary(sem, year);
+      });
     </script>
     <script src="/js/api.js"></script>
+    <script src="/js/notifications.js"></script>
     <script>
       document.getElementById("backBtn").addEventListener("click", () => {
         window.location.href = "student.html";

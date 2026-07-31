@@ -85,6 +85,17 @@ app.use(
 
 // NOTE: csurf is deprecated/unmaintained per npm and should be replaced with a maintained CSRF solution (e.g., csrf-csrf) in a future pass.
 const csrfProtection = csrf({ cookie: false });
+
+app.use((req, res, next) => {
+  try {
+    const logMsg = `[${new Date().toISOString()}] ${req.method} ${req.url} - session: ${JSON.stringify(req.session?.user || null)}\n`;
+    fs.appendFileSync(path.join(__dirname, "server.log"), logMsg);
+  } catch (e) {
+    console.error("Logging failed:", e);
+  }
+  next();
+});
+
 app.use(csrfProtection);
 app.use(express.static("public"));
 
@@ -154,12 +165,22 @@ app.use(studentRouter);
 app.use(facultyRouter);
 app.use(adminRouter);
 
-// Error handler for Multer upload errors
+// Error handler for Multer upload errors and CSRF / database errors
 app.use((err, req, res, next) => {
+  try {
+    const logMsg = `[${new Date().toISOString()}] ERROR: ${err.stack || err.message}\n`;
+    fs.appendFileSync(path.join(__dirname, "server.log"), logMsg);
+  } catch (e) {
+    console.error("Logging error failed:", e);
+  }
+
   if (err.name === "MulterError" || err.message === "Only PDF files are allowed") {
     return res.status(400).json({ error: err.message });
   }
-  next(err);
+  if (err.code === "EBADCSRFTOKEN") {
+    return res.status(403).json({ error: "Invalid CSRF token" });
+  }
+  res.status(500).json({ error: err.message || "Internal server error" });
 });
 
 // -- SERVER
