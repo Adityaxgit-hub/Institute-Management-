@@ -228,6 +228,39 @@
         border-color: #94a3b8;
         box-shadow: 0 6px 16px rgba(15, 23, 42, 0.06);
       }
+
+      @media (max-width: 768px) {
+        .page {
+          padding: 20px 16px;
+        }
+
+        .header-with-action {
+          flex-direction: column;
+          align-items: flex-start !important;
+          gap: 12px;
+        }
+
+        .select-wrapper,
+        .modern-select {
+          width: 100%;
+        }
+      }
+
+      @media (max-width: 640px) {
+        .topbar-inner {
+          flex-direction: column;
+          align-items: flex-start;
+          gap: 16px;
+        }
+
+        .course-grid {
+          grid-template-columns: 1fr;
+        }
+
+        .card {
+          padding: 16px;
+        }
+      }
     </style>
   </head>
 

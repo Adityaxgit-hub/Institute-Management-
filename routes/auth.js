@@ -6,12 +6,14 @@ const nodemailer = require("nodemailer");
 const { maybeLoginLimiter, sensitiveLimiter } = require("../middleware/auth");
 
 const transporter = nodemailer.createTransport({
-  service: "gmail",
+  host: "smtp.sendgrid.net",
+  port: 587,
   auth: {
-    user: process.env.GMAIL_USER,
-    pass: process.env.GMAIL_APP_PASSWORD,
+    user: "apikey",
+    pass: process.env.SENDGRID_API_KEY,
   },
 });
+
 
 const saltRounds = 10;
 const MAX_ATTEMPTS = 5;
@@ -137,7 +139,7 @@ router.post("/signup/request-otp", sensitiveLimiter, async (req, res) => {
     );
 
     await transporter.sendMail({
-      from: `"Institute Portal" <${process.env.GMAIL_USER}>`,
+      from: `"Institute Portal" <${process.env.SENDGRID_FROM_EMAIL}>`,
       to: email,
       subject: "Your Signup Verification Code",
       html: `
@@ -312,7 +314,7 @@ router.post("/forgot-password", sensitiveLimiter, async (req, res) => {
     const resetLink = `${baseUrl}/reset-password.html?token=${token}`;
 
     await transporter.sendMail({
-      from: `"Institute Portal" <${process.env.GMAIL_USER}>`,
+      from: `"Institute Portal" <${process.env.SENDGRID_FROM_EMAIL}>`,
       to: email,
       subject: "Password Reset Request",
       html: `
@@ -407,4 +409,20 @@ router.post("/force-reset-password", async (req, res) => {
   }
 });
 
+// ---------------- LOGOUT ----------------
+router.post("/logout", (req, res) => {
+  if (req.session) {
+    req.session.destroy((err) => {
+      if (err) {
+        return res.status(500).json({ message: "Failed to log out" });
+      }
+      res.clearCookie("connect.sid");
+      res.json({ success: true, message: "Logged out successfully" });
+    });
+  } else {
+    res.json({ success: true });
+  }
+});
+
 module.exports = router;
+

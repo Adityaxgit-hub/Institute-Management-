@@ -1,5 +1,20 @@
 const express = require("express");
 const router = express.Router();
+const { S3Client, GetObjectCommand } = require("@aws-sdk/client-s3");
+const { getSignedUrl } = require("@aws-sdk/s3-request-presigner");
+
+// S3 client for generating pre-signed download URLs (private bucket support)
+const s3 = new S3Client({
+  region: (process.env.B2_REGION || "us-east-005").trim(),
+  endpoint: (process.env.B2_ENDPOINT || "https://s3.us-east-005.backblazeb2.com").trim(),
+  credentials: {
+    accessKeyId: (process.env.B2_KEY_ID || "").trim(),
+    secretAccessKey: (process.env.B2_APPLICATION_KEY || "").trim(),
+  },
+  forcePathStyle: true,
+});
+
+const B2_BUCKET = (process.env.B2_BUCKET || "").trim();
 
 function requireAuth(req, res, next) {
   if (!req.session.user) {
@@ -107,7 +122,26 @@ router.get("/all", async (req, res) => {
        LIMIT 20`,
       [userId, role, personalTarget, deptId],
     );
-    res.json(rows);
+    // Generate a 1-hour pre-signed URL for any notification that has a PDF key.
+    // Legacy rows may contain a full public URL — pass those through unchanged.
+    const withUrls = await Promise.all(
+      rows.map(async (row) => {
+        if (row.pdf_url && B2_BUCKET) {
+          const isKey = !row.pdf_url.startsWith("http");
+          if (isKey) {
+            try {
+              const cmd = new GetObjectCommand({ Bucket: B2_BUCKET, Key: row.pdf_url });
+              row.pdf_url = await getSignedUrl(s3, cmd, { expiresIn: 3600 });
+            } catch {
+              // If signing fails, omit the URL rather than crashing
+              row.pdf_url = null;
+            }
+          }
+        }
+        return row;
+      })
+    );
+    res.json(withUrls);
   } catch (err) {
     console.error("notifications/all error:", err);
     res.json([]);

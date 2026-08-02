@@ -586,6 +586,16 @@
         .form-grid {
           grid-template-columns: 1fr;
         }
+
+        .tabs {
+          flex-wrap: wrap;
+        }
+
+        .card-header {
+          flex-direction: column;
+          align-items: flex-start;
+          gap: 16px;
+        }
       }
 
       .leave-row-decided {
@@ -1027,6 +1037,11 @@
               method: "POST",
               body: formData,
             });
+            if (!uploadRes.ok) {
+              const errData = await uploadRes.json().catch(() => ({}));
+              showToast(errData.error || "Failed to upload PDF");
+              return;
+            }
             const uploadData = await uploadRes.json();
             pdfUrl = uploadData.url;
           }
@@ -1356,7 +1371,12 @@
         return params.toString();
       }
 
-      function logout() {
+      async function logout() {
+        try {
+          await apiFetch("/logout", { method: "POST" });
+        } catch (err) {
+          console.error("Logout failed:", err);
+        }
         localStorage.clear();
         location.href = "login.html";
       }

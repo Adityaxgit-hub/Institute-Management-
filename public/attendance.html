@@ -151,6 +151,33 @@
       .save-btn:hover {
         background: var(--primary-dark);
       }
+
+      .table-wrap {
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+      }
+
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        min-width: 500px;
+      }
+
+      @media (max-width: 640px) {
+        .topbar-inner {
+          flex-direction: column;
+          align-items: flex-start;
+          gap: 16px;
+        }
+
+        .page {
+          padding: 16px;
+        }
+
+        .card {
+          padding: 16px;
+        }
+      }
     </style>
   </head>
 
@@ -185,23 +212,25 @@
       </div>
 
       <div class="card">
-        <table>
-          <thead>
-            <tr>
-              <th>Roll No</th>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Roll No</th>
 
-              <th>Student Name</th>
+                <th>Student Name</th>
 
-              <th>Present</th>
-            </tr>
-          </thead>
+                <th>Present</th>
+              </tr>
+            </thead>
 
-          <tbody id="studentBody">
-            <tr>
-              <td colspan="3">Loading Students...</td>
-            </tr>
-          </tbody>
-        </table>
+            <tbody id="studentBody">
+              <tr>
+                <td colspan="3">Loading Students...</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
 
         <button class="save-btn" id="saveAttendanceBtn">
           Save Attendance

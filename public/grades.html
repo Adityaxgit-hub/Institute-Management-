@@ -169,6 +169,33 @@
         opacity: 0.6;
         cursor: not-allowed;
       }
+
+      .table-wrap {
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+      }
+
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        min-width: 800px;
+      }
+
+      @media (max-width: 640px) {
+        .topbar-inner {
+          flex-direction: column;
+          align-items: flex-start;
+          gap: 16px;
+        }
+
+        .page {
+          padding: 16px;
+        }
+
+        .card {
+          padding: 16px;
+        }
+      }
     </style>
   </head>
 
@@ -196,26 +223,28 @@
       </div>
 
       <div class="card">
-        <table>
-          <thead>
-            <tr>
-              <th>Roll No</th>
-              <th>Student Name</th>
-              <th>Assignment 1</th>
-              <th>Mid Exam</th>
-              <th>Assignment 2</th>
-              <th>End Sem</th>
-              <th>Internal Viva</th>
-              <th>External Viva</th>
-            </tr>
-          </thead>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Roll No</th>
+                <th>Student Name</th>
+                <th>Assignment 1</th>
+                <th>Mid Exam</th>
+                <th>Assignment 2</th>
+                <th>End Sem</th>
+                <th>Internal Viva</th>
+                <th>External Viva</th>
+              </tr>
+            </thead>
 
-          <tbody id="marksBody">
-            <tr>
-              <td colspan="8">Loading students...</td>
-            </tr>
-          </tbody>
-        </table>
+            <tbody id="marksBody">
+              <tr>
+                <td colspan="8">Loading students...</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
 
         <button class="save-btn" id="saveMarksBtn">Save Grades</button>
       </div>

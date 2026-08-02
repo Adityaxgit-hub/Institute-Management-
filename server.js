@@ -1,5 +1,6 @@
 require("dotenv").config({
   path: process.env.NODE_ENV === "test" ? ".env.test" : ".env",
+  override: true,
 });
 
 if (process.env.NODE_ENV === "production") {
@@ -16,6 +17,7 @@ const { Server } = require("socket.io");
 const cors = require("cors");
 const mysql = require("mysql2/promise");
 const session = require("express-session");
+const MySQLStore = require("express-mysql-session")(session);
 const helmet = require("helmet");
 const path = require("path");
 const fs = require("fs");
@@ -70,9 +72,17 @@ app.use(
 );
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+const sessionStore = new MySQLStore({
+  host: process.env.DB_HOST,
+  user: process.env.DB_USER,
+  password: process.env.DB_PASSWORD,
+  database: process.env.DB_NAME,
+});
+
 app.use(
   session({
     secret: process.env.SESSION_SECRET || "DefaultSecret",
+    store: sessionStore,
     resave: false,
     saveUninitialized: false,
     cookie: {
@@ -87,16 +97,26 @@ app.use(
 const csrfProtection = csrf({ cookie: false });
 
 app.use((req, res, next) => {
-  try {
-    const logMsg = `[${new Date().toISOString()}] ${req.method} ${req.url} - session: ${JSON.stringify(req.session?.user || null)}\n`;
-    fs.appendFileSync(path.join(__dirname, "server.log"), logMsg);
-  } catch (e) {
-    console.error("Logging failed:", e);
+  const session = req.session?.user
+    ? { id: req.session.user.id, role: req.session.user.role }
+    : null;
+  console.log(
+    `[${new Date().toISOString()}] ${req.method} ${req.url} - session: ${JSON.stringify(session)}`
+  );
+  next();
+});
+
+
+app.use(csrfProtection);
+
+// Prevent caching of HTML files to avoid back-button exposure after logout
+app.use((req, res, next) => {
+  if (req.path.endsWith(".html") || req.path === "/") {
+    res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, private");
   }
   next();
 });
 
-app.use(csrfProtection);
 app.use(express.static("public"));
 
 app.get("/csrf-token", csrfProtection, (req, res) => {
@@ -108,11 +128,26 @@ if (!isTestEnv) {
 }
 
 // ---------------- DATABASE CONNECTION ----------------
+// In production: encrypt the connection.
+// Aiven-style: pass the PEM cert contents as DB_SSL_CA env var.
+// TiDB/PlanetScale: omit DB_SSL_CA — public CAs are trusted automatically.
+const sslConfig =
+  process.env.NODE_ENV === "production"
+    ? {
+        ca: process.env.DB_SSL_CA
+          ? process.env.DB_SSL_CA.replace(/\\n/g, "\n")
+          : undefined,
+        rejectUnauthorized: true,
+      }
+    : undefined;
+
 const db = mysql.createPool({
   host: process.env.DB_HOST,
   user: process.env.DB_USER,
   password: process.env.DB_PASSWORD,
   database: process.env.DB_NAME,
+  port: process.env.DB_PORT ? parseInt(process.env.DB_PORT, 10) : 3306,
+  ssl: sslConfig,
 });
 
 db.getConnection()
@@ -167,12 +202,7 @@ app.use(adminRouter);
 
 // Error handler for Multer upload errors and CSRF / database errors
 app.use((err, req, res, next) => {
-  try {
-    const logMsg = `[${new Date().toISOString()}] ERROR: ${err.stack || err.message}\n`;
-    fs.appendFileSync(path.join(__dirname, "server.log"), logMsg);
-  } catch (e) {
-    console.error("Logging error failed:", e);
-  }
+  console.error(JSON.stringify({ time: new Date().toISOString(), error: err.stack || err.message }));
 
   if (err.name === "MulterError" || err.message === "Only PDF files are allowed") {
     return res.status(400).json({ error: err.message });

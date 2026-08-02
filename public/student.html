@@ -618,7 +618,12 @@
         renderCoursesForSemester(selectedSem);
       }
 
-      function logout() {
+      async function logout() {
+        try {
+          await apiFetch("/logout", { method: "POST" });
+        } catch (err) {
+          console.error("Logout failed:", err);
+        }
         localStorage.clear();
         location.href = "login.html";
       }

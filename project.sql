@@ -392,7 +392,6 @@ CREATE TABLE IF NOT EXISTS Marks (
 ALTER TABLE Students ADD UNIQUE KEY uniq_student_user (user_Id);
 ALTER TABLE Faculty ADD UNIQUE KEY uniq_faculty_user (user_Id);
 
--- Re-add Department.HOD_Id FK with ON DELETE SET NULL (To inspect constraint name: SHOW CREATE TABLE Department;)
 ALTER TABLE Department DROP FOREIGN KEY Department_ibfk_1;
 ALTER TABLE Department ADD CONSTRAINT fk_department_hod FOREIGN KEY (HOD_Id) REFERENCES Faculty(faculty_Id) ON DELETE SET NULL;
 

@@ -1,6 +1,8 @@
 const express = require("express");
 const router = express.Router();
 const multer = require("multer");
+const { S3Client } = require("@aws-sdk/client-s3");
+const multerS3 = require("multer-s3");
 const path = require("path");
 const fs = require("fs");
 const crypto = require("crypto");
@@ -14,22 +16,27 @@ const phoneRegex = /^[0-9]{7,15}$/;
 const nameRegex = /^[A-Za-z][A-Za-z\s'-]{0,49}$/;
 const dobRegex = /^\d{4}-\d{2}-\d{2}$/;
 
-// Multer configurations for PDF uploads
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    const dir = "./public/uploads/pdfs";
-    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-    cb(null, dir);
+const s3 = new S3Client({
+  region: (process.env.B2_REGION || "us-west-004").trim(),
+  endpoint: (process.env.B2_ENDPOINT || "https://s3.us-west-004.backblazeb2.com").trim(),
+  credentials: {
+    accessKeyId: (process.env.B2_KEY_ID || "dummy-key").trim(),
+    secretAccessKey: (process.env.B2_APPLICATION_KEY || "dummy-secret").trim(),
   },
-  filename: (req, file, cb) => {
-    cb(null, `${Date.now()}-${crypto.randomBytes(6).toString("hex")}.pdf`);
-  },
+  forcePathStyle: true,
 });
 
 const upload = multer({
-  storage,
+  storage: multerS3({
+    s3,
+    bucket: (process.env.B2_BUCKET || "dummy-bucket").trim(),
+    contentType: multerS3.AUTO_CONTENT_TYPE,
+    key: (req, file, cb) => {
+      cb(null, `pdfs/${Date.now()}-${crypto.randomBytes(6).toString("hex")}.pdf`);
+    },
+  }),
   limits: {
-    fileSize: 10 * 1024 * 1024, // 10MB cap
+    fileSize: 10 * 1024 * 1024,
     files: 1,
   },
   fileFilter: (req, file, cb) => {
@@ -1111,7 +1118,6 @@ router.put("/admin/faculty-leaves/:id/reject", requireRole("admin"), async (req,
   }
 });
 
-// ------------- FILE UPLOADS -------------
 router.post(
   "/admin/upload-pdf",
   requireRole("admin"),
@@ -1119,29 +1125,12 @@ router.post(
   async (req, res) => {
     if (!req.file) return res.status(400).json({ error: "No PDF uploaded" });
 
-    try {
-      if (!fileTypeFromFile) {
-        const ft = await import("file-type");
-        fileTypeFromFile = ft.fileTypeFromFile;
-      }
-      const detected = await fileTypeFromFile(req.file.path);
-
-      if (!detected || detected.mime !== "application/pdf") {
-        fs.unlinkSync(req.file.path);
-        return res.status(400).json({ error: "File content is not a valid PDF" });
-      }
-
-      res.json({
-        url: `/uploads/pdfs/${req.file.filename}`,
-        name: req.file.originalname,
-      });
-    } catch (err) {
-      console.error("PDF validation error:", err);
-      if (req.file?.path && fs.existsSync(req.file.path)) {
-        fs.unlinkSync(req.file.path);
-      }
-      res.status(500).json({ error: "Unable to process uploaded file" });
-    }
+    // Store the S3 object key only; a pre-signed URL is generated on
+    // the fly in the notifications/all route so private buckets work.
+    res.json({
+      url: req.file.key,
+      name: req.file.originalname,
+    });
   },
 );
 
