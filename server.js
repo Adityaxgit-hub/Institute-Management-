@@ -128,16 +128,13 @@ if (!isTestEnv) {
 }
 
 // ---------------- DATABASE CONNECTION ----------------
-// In production: encrypt the connection.
-// Aiven-style: pass the PEM cert contents as DB_SSL_CA env var.
-// TiDB/PlanetScale: omit DB_SSL_CA — public CAs are trusted automatically.
 const sslConfig =
-  process.env.NODE_ENV === "production"
+  process.env.NODE_ENV === "production" || process.env.DB_HOST?.includes("aivencloud.com")
     ? {
         ca: process.env.DB_SSL_CA
           ? process.env.DB_SSL_CA.replace(/\\n/g, "\n")
           : undefined,
-        rejectUnauthorized: true,
+        rejectUnauthorized: false,
       }
     : undefined;
 
