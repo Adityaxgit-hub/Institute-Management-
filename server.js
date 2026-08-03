@@ -164,7 +164,7 @@ db.query(`
     is_read TINYINT(1) NOT NULL DEFAULT 0,
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
   )
-`);
+`).catch((err) => console.error("Notifications table setup failed:", err));
 
 app.set("db", db);
 app.set("io", io);
