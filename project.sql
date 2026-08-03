@@ -103,11 +103,11 @@ INSERT INTO Department (dept_name) VALUES
 
 -- Faculty Users
 INSERT INTO Users (username, password, role) VALUES
-('ravi.kumar', '$2b$10$1mwsNX03ziDjGKiL9UYaUO1B9WYuSy3hvtqglQSfdxfKLIeSzswxK', 'faculty'),
-('anita.sharma', '$2b$10$YMQ69oaI31rTAMZsVCjJjewG1kjHhC7tT5vcdNYXreqZRi2LQFpkO', 'faculty'),
-('vikram.patel', '$2b$10$emJ.U6KKR8v9bBd6EYgb5eGw5ezxDHFSAg89xUGomDFdlBpbeFWvO', 'faculty'),
-('neha.verma', '$2b$10$/EkBLucPxklDtMmk.I8VuepDZybf5kgYhJdtppTb7a3FO3d5RNgvm', 'faculty'),
-('suresh.reddy', '$2b$10$ivD3bPTBLwpT7Td6VDfq8upRE0pvIT.nERGVx5yxplPGfqwsQB6ha', 'faculty');
+('ravi.kumar', '$2b$10$ACQYbx1qCXf5vcGb.wcsGudkA3exa1GOqFjnCOkUlrpNtfGcGWuCW', 'faculty'),
+('anita.sharma', '$2b$10$udsd3PEb7d7uqG3L2GB93On1DHxzoFG/433xrzet1FmDZNdfFf5ma', 'faculty'),
+('vikram.patel', '$2b$10$3RwLArA9vAzQNyVsVpNZpegoJI3BszqOtzJpB2lolqkxpZH7a3iCm', 'faculty'),
+('neha.verma', '$2b$10$NgKt7k9yJUfYFjh8FDEZzeDGMOuTBbBzTRKmj.bPbzLRUpR76gyWS', 'faculty'),
+('suresh.reddy', '$2b$10$uToc.gYcAZSEgAHZngYemuG6bOq/atyRRtn7HxwZANschrNl1R9Dm', 'faculty');
 
 -- Faculty Members
 INSERT INTO Faculty (first_name, last_name, email, phone, designation, join_date, dept_Id, user_Id)
@@ -136,16 +136,16 @@ INSERT INTO Courses (course_Id, course_name, credits, dept_Id) VALUES
 
 -- Student Users
 INSERT INTO Users (username, password, role) VALUES
-('abhiinay', '$2b$10$UvDZMZu3xwhBjSu8NzTdKuP6/sDu4GUZL3Nbq5w94sQMrfkRzfFWu', 'student'),
-('aditya', '$2b$10$2OhABy9d/VH2AcrKI5c2oezF9zT6JXcv/I7/r.9AQEocXD/qtuiEC', 'student'),
-('giridhar', '$2b$10$l2d/o04ROU4fw1qfLZoNz.a1uNs4DZIeF5/SDzCBR1gx55PCnzJ8G', 'student'),
-('praveen', '$2b$10$YooJXyZWDe4aIQlSxJW.ReLrguC550l8V3/jrNmF/TpMI9h6xruXm', 'student'),
-('aardhya', '$2b$10$NE4QytUfmIELAkZ.yeG7/ukUxc2uwmivHNXNHv34KMkRT3clRvcpm', 'student'),
-('aditi', '$2b$10$TWck11IVDbdZpWl7x5tYiun0FfqvVJb2EoF2XmyByZz1wJUBPmwl6', 'student'),
-('ananya', '$2b$10$MCbaIYLbetUC8myAnupmJe2B/OzZ9nCrxZZPvkM1yfc3b.1W1geiG', 'student'),
-('ishitha', '$2b$10$7FbtTas96hmaj5YAagoRJeK9h31.vgpAINqQ.R0CiZ0Ht1NOJ6B3y', 'student'),
-('diya', '$2b$10$TlKGgrQee4x7.VxHHZtzb.H/FY/8c/Auz1C.tyb8GoZw8RB/LtOkW', 'student'),
-('meera', '$2b$10$n82imQ3FaH0d3Gz0YH14We8OBbRm.pav5OCcN3JgGjQI9qtbBW5Bm', 'student');
+('abhiinay', '$2b$10$p/zl4NT.ClXasUr0zRnDtOv9qIStHkIK.nxhlHECLukGOY.0dZ2da', 'student'),
+('aditya', '$2b$10$uo9pkLq8dG7mWys6XqqPSukwGfejJpesCxXoP1e6sAzQjY1AKFQYi', 'student'),
+('giridhar', '$2b$10$2cdBvvaNdsmA/IKT1gMUI.ef4.yDfJHdNKUIs2UjkiuGm/DHW2aGa', 'student'),
+('praveen', '$2b$10$KW8EoPUlAU3a1/0yaKxr3.J2elap8qRmrsHO10JFigTPVR7rJvagO', 'student'),
+('aardhya', '$2b$10$qyvjYs0P6vrQKqTNtLhlteYcOvNhJitD37XiNAyy3i0Yfx2rHcssm', 'student'),
+('aditi', '$2b$10$DySYEG/gf6XNnVaBTNOzT.miAQqCTQk/FytwxZNjWf46bxgqNqqf6', 'student'),
+('ananya', '$2b$10$OZgeLdSE6nhNQ7OsAKgqpOMaU.Up71f9peyyt1uvtUVs3w5mALmYi', 'student'),
+('ishitha', '$2b$10$G7Sbst5t0iGk8tzqLyOWRuAOq5bSNuNS/tTgyCydBOgoZ6.WqM7FS', 'student'),
+('diya', '$2b$10$aeLlQYKy0dGTa2dobd9IFe7khQ6Ev5oB6hroMtUAotGX5HrdQlwse', 'student'),
+('meera', '$2b$10$pGhhdikRiVwE.A9WvtwA5eFanr6eqd3nvJNqlqiJ4xlXHRSDN0YPC', 'student');
 
 -- Students
 INSERT INTO Students (student_Id, first_name, last_name, email, phone, DOB, admission_date, dept_Id, user_Id)
@@ -259,7 +259,7 @@ ORDER BY user_Id;
 
 -- Additional Setup & Schema Adjustments
 INSERT INTO Users (username, password, role) VALUES
-('admin', '$2b$10$7.LqrNVhrgufIQB8l0gd9e/6BlwgKIzy7QKaKAtzJF8NfTpd8q6uu', 'admin');
+('admin', '$2b$10$6n8PTVRZjji6mPhYhFCC0.ZNcreZo7SsmCUXCugVUM7v9HN1MAS1S', 'admin');
 
 CREATE TABLE IF NOT EXISTS notifications(
   id INT PRIMARY KEY AUTO_INCREMENT,
