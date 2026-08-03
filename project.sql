@@ -345,7 +345,7 @@ CREATE TABLE IF NOT EXISTS signup_otps (
 ALTER TABLE Users
 ADD COLUMN must_reset_password TINYINT(1) NOT NULL DEFAULT 1;
 
-UPDATE Users SET must_reset_password = 0;
+UPDATE Users SET must_reset_password = 1;
 
 -- GRADING SYSTEM
 CREATE TABLE IF NOT EXISTS Marks (

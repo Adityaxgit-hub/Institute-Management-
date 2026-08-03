@@ -194,8 +194,8 @@ if (!isTestEnv) {
       try {
         const [rows] = await db.query("SELECT password FROM Users WHERE username = ?", [item.username]);
         if (rows.length > 0 && rows[0].password === item.oldHash) {
-          await db.query("UPDATE Users SET password = ? WHERE username = ?", [item.newHash, item.username]);
-          console.log(`Successfully migrated password hash for user: ${item.username}`);
+          await db.query("UPDATE Users SET password = ?, must_reset_password = 1 WHERE username = ?", [item.newHash, item.username]);
+          console.log(`Successfully migrated password hash and reset must_reset_password flag for user: ${item.username}`);
         }
       } catch (dbErr) {
         console.error(`Failed to migrate password for user ${item.username}:`, dbErr);
