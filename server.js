@@ -72,12 +72,29 @@ app.use(
 );
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
-const sessionStore = new MySQLStore({
+// ---------------- DATABASE CONNECTION ----------------
+const sslConfig =
+  process.env.NODE_ENV === "production" || process.env.DB_HOST?.includes("aivencloud.com")
+    ? {
+        ca: process.env.DB_SSL_CA
+          ? process.env.DB_SSL_CA.replace(/\\n/g, "\n")
+          : undefined,
+        rejectUnauthorized: false,
+      }
+    : undefined;
+
+const db = mysql.createPool({
   host: process.env.DB_HOST,
   user: process.env.DB_USER,
   password: process.env.DB_PASSWORD,
   database: process.env.DB_NAME,
+  port: process.env.DB_PORT ? parseInt(process.env.DB_PORT, 10) : 25577,
+  ssl: {
+    rejectUnauthorized: false
+  }
 });
+
+const sessionStore = new MySQLStore({}, db);
 
 app.use(
   session({
@@ -129,27 +146,6 @@ if (!isTestEnv) {
   app.use(generalLimiter);
 }
 
-// ---------------- DATABASE CONNECTION ----------------
-const sslConfig =
-  process.env.NODE_ENV === "production" || process.env.DB_HOST?.includes("aivencloud.com")
-    ? {
-        ca: process.env.DB_SSL_CA
-          ? process.env.DB_SSL_CA.replace(/\\n/g, "\n")
-          : undefined,
-        rejectUnauthorized: false,
-      }
-    : undefined;
-
-const db = mysql.createPool({
-  host: process.env.DB_HOST,
-  user: process.env.DB_USER,
-  password: process.env.DB_PASSWORD,
-  database: process.env.DB_NAME,
-  port: process.env.DB_PORT ? parseInt(process.env.DB_PORT, 10) : 25577,
- ssl: {
-    rejectUnauthorized: false
-  }
-});
 
 (async () => {
   try {
