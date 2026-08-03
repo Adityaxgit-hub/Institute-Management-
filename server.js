@@ -15,7 +15,7 @@ const express = require("express");
 const http = require("http");
 const { Server } = require("socket.io");
 const cors = require("cors");
-const mysql = require("mysql2");
+const mysql = require("mysql2/promise");
 const session = require("express-session");
 const MySQLStore = require("express-mysql-session")(session);
 const helmet = require("helmet");
@@ -143,31 +143,34 @@ const db = mysql.createPool({
   user: process.env.DB_USER,
   password: process.env.DB_PASSWORD,
   database: process.env.DB_NAME,
-  port: Number(process.env.DB_PORT) || 25577,
-  ssl: {
+  port: process.env.DB_PORT ? parseInt(process.env.DB_PORT, 10) : 25577,
+ ssl: {
     rejectUnauthorized: false
-  },
-  waitForConnections: true,
-  connectionLimit: 10,
-  queueLimit: 0
+  }
 });
 
-db.getConnection()
-  .then(() => console.log("Connected to MySQL Database"))
-  .catch((err) => console.error("Database connection failed:", err));
+(async () => {
+  try {
+    const connection = await db.getConnection();
+    console.log("Connected to MySQL Database");
+    connection.release();
 
-db.query(`
-  CREATE TABLE IF NOT EXISTS notifications (
-    id INT PRIMARY KEY AUTO_INCREMENT,
-    title VARCHAR(255) NOT NULL,
-    message TEXT NOT NULL,
-    target VARCHAR(50) NOT NULL,
-    pdf_url VARCHAR(500) NULL,
-    dept_Id INT NULL,
-    is_read TINYINT(1) NOT NULL DEFAULT 0,
-    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
-  )
-`).catch((err) => console.error("Notifications table setup failed:", err));
+    await db.query(`
+      CREATE TABLE IF NOT EXISTS notifications (
+        id INT PRIMARY KEY AUTO_INCREMENT,
+        title VARCHAR(255) NOT NULL,
+        message TEXT NOT NULL,
+        target VARCHAR(50) NOT NULL,
+        pdf_url VARCHAR(500) NULL,
+        dept_Id INT NULL,
+        is_read TINYINT(1) NOT NULL DEFAULT 0,
+        created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+  } catch (err) {
+    console.error("Database initialization failed:", err);
+  }
+})();
 
 app.set("db", db);
 app.set("io", io);
@@ -217,9 +220,11 @@ app.use((err, req, res, next) => {
 
 // -- SERVER
 const PORT = process.env.PORT || 5000;
+const HOST = "0.0.0.0";
+
 if (require.main === module) {
-  server.listen(PORT, () =>
-    console.log(`Server running on http://localhost:${PORT}/login.html`),
+  server.listen(PORT, HOST, () =>
+    console.log(`Server running on http://${HOST}:${PORT}/login.html`)
   );
 }
 
