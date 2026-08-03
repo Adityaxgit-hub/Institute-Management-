@@ -126,6 +126,10 @@ app.use((req, res, next) => {
 app.get("/health", (req, res) => {
   res.status(200).send("OK");
 });
+
+app.get("/", (req, res) => {
+  res.redirect("/login.html");
+});
 app.use(csrfProtection);
 
 // Prevent caching of HTML files to avoid back-button exposure after logout
