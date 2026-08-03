@@ -3,6 +3,7 @@
   "version": "1.0.0",
   "main": "index.js",
   "scripts": {
+    "start": "node server.js",
     "test": "jest --runInBand",
     "test:coverage": "jest --runInBand --coverage",
     "csp:build": "node scripts/generate-csp-hashes.js",

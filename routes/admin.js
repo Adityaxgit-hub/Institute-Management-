@@ -17,11 +17,11 @@ const nameRegex = /^[A-Za-z][A-Za-z\s'-]{0,49}$/;
 const dobRegex = /^\d{4}-\d{2}-\d{2}$/;
 
 const s3 = new S3Client({
-  region: (process.env.B2_REGION || "us-west-004").trim(),
-  endpoint: (process.env.B2_ENDPOINT || "https://s3.us-west-004.backblazeb2.com").trim(),
+  region: (process.env.B2_REGION || "us-east-005").trim(),
+  endpoint: (process.env.B2_ENDPOINT || "https://s3.us-east-005.backblazeb2.com").trim(),
   credentials: {
-    accessKeyId: (process.env.B2_KEY_ID || "dummy-key").trim(),
-    secretAccessKey: (process.env.B2_APPLICATION_KEY || "dummy-secret").trim(),
+    accessKeyId: (process.env.B2_KEY_ID || "").trim(),
+    secretAccessKey: (process.env.B2_APPLICATION_KEY || "").trim(),
   },
   forcePathStyle: true,
 });
@@ -29,7 +29,7 @@ const s3 = new S3Client({
 const upload = multer({
   storage: multerS3({
     s3,
-    bucket: (process.env.B2_BUCKET || "dummy-bucket").trim(),
+    bucket: (process.env.B2_BUCKET || "").trim(),
     contentType: multerS3.AUTO_CONTENT_TYPE,
     key: (req, file, cb) => {
       cb(null, `pdfs/${Date.now()}-${crypto.randomBytes(6).toString("hex")}.pdf`);
