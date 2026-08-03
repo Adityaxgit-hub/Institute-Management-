@@ -7,7 +7,7 @@
     "test": "jest --runInBand",
     "test:coverage": "jest --runInBand --coverage",
     "csp:build": "node scripts/generate-csp-hashes.js",
-    "prepare": "husky"
+    "prepare": "is-ci || husky"
   },
   "jest": {
     "setupFiles": [
