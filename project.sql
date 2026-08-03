@@ -1,13 +1,15 @@
-CREATE DATABASE IF NOT EXISTS institute;
+DROP DATABASE IF EXISTS institute;
+CREATE DATABASE institute;
 USE institute;
 
 -- USERS TABLE
-CREATE TABLE if not exists Users(
+CREATE TABLE IF NOT EXISTS Users(
   user_Id INT PRIMARY KEY AUTO_INCREMENT,
   username VARCHAR(50) UNIQUE NOT NULL,
   password VARCHAR(255) NOT NULL,
   role VARCHAR(10)
 );
+
 -- DEPARTMENT TABLE
 CREATE TABLE IF NOT EXISTS Department(
   dept_Id INT PRIMARY KEY AUTO_INCREMENT,
@@ -132,7 +134,7 @@ INSERT INTO Courses (course_Id, course_name, credits, dept_Id) VALUES
 ('CE101', 'Surveying', 3, 4),
 ('IT101', 'Web Technologies', 3, 5);
 
--- Student Users (first 10 only for brevity)
+-- Student Users
 INSERT INTO Users (username, password, role) VALUES
 ('abhiinay', '$2b$10$UvDZMZu3xwhBjSu8NzTdKuP6/sDu4GUZL3Nbq5w94sQMrfkRzfFWu', 'student'),
 ('aditya', '$2b$10$2OhABy9d/VH2AcrKI5c2oezF9zT6JXcv/I7/r.9AQEocXD/qtuiEC', 'student'),
@@ -159,7 +161,7 @@ VALUES
 ('S009', 'Diya', 'Sharma', 'diya.sharma@institute.edu', '8000000009', '2004-05-18', '2022-08-01', 4, 14),
 ('S010', 'Meera', 'Rao', 'meera.rao@institute.edu', '8000000010', '2004-06-11', '2022-08-01', 5, 15);
 
--- Teaches (Faculty teaches Courses)
+-- Teaches
 INSERT INTO Teaches (faculty_Id, course_Id, semester, year, section) VALUES
 (1, 'CS101', 4, 2024, 'A'),
 (1, 'CS102', 4, 2024, 'A'),
@@ -193,85 +195,69 @@ INSERT INTO Attendance (student_Id, course_Id, Attd_Date, Status) VALUES
 ('S008', 'ME101', '2024-08-06', 'P'),
 ('S009', 'CE101', '2024-08-05', 'A'),
 ('S010', 'IT101', '2024-08-05', 'P');
- 
--- Department-HOD table
+
+-- Department-HOD View
 CREATE VIEW dept_HOD_table AS
-SELECT d.dept_Id,d.dept_name,d.HOD_Id,CONCAT(f.first_name," ",f.last_name) fullName
+SELECT d.dept_Id, d.dept_name, d.HOD_Id, CONCAT(f.first_name, ' ', f.last_name) AS fullName
 FROM Department d 
 JOIN Faculty f ON (d.HOD_Id = f.faculty_id)
 ORDER BY d.dept_Id;
- 
--- SELECT * FROM dept_HOD_table;
 
--- faculty-department table
+-- Faculty-Department View
 CREATE VIEW faculty_dept_table AS 
-SELECT f.faculty_Id,CONCAT(f.first_name,' ',f.last_name) faculty_name,d.dept_Id,d.dept_name
+SELECT f.faculty_Id, CONCAT(f.first_name, ' ', f.last_name) AS faculty_name, d.dept_Id, d.dept_name
 FROM Faculty f
 JOIN Department d ON (f.dept_Id = d.dept_Id)
 ORDER BY f.faculty_id;
 
--- SELECT * FROM faculty_dapt_table;
-
--- student-department table
+-- Student-Department View
 CREATE VIEW student_dept_table AS
-SELECT s.student_Id,CONCAT(s.first_name," ",s.last_name) student_name,s.DOB,s.email,s.phone,d.dept_name
+SELECT s.student_Id, CONCAT(s.first_name, ' ', s.last_name) AS student_name, s.DOB, s.email, s.phone, d.dept_name
 FROM Students s
 JOIN Department d ON (s.dept_Id = d.dept_Id)
 ORDER BY s.student_Id;
 
--- SELECT * FROM student_dept_table;
-
--- department-course table
+-- Department-Course View
 CREATE VIEW courses_dept_table AS 
-SELECT d.dept_Id,d.dept_name,c.course_Id,c.course_name
-FROM department d
-JOIN courses c ON (d.dept_Id = c.dept_Id);
+SELECT d.dept_Id, d.dept_name, c.course_Id, c.course_name
+FROM Department d
+JOIN Courses c ON (d.dept_Id = c.dept_Id);
 
--- SELECT * FROM courses_dept_table;
-
--- faculty-course table
+-- Faculty-Course View
 CREATE VIEW faculty_course_table AS
-SELECT t.faculty_Id,CONCAT(f.first_name," ",f.last_name) faculty_name,c.course_name,t.section,t.semester,t.year
+SELECT t.faculty_Id, CONCAT(f.first_name, ' ', f.last_name) AS faculty_name, c.course_name, t.section, t.semester, t.year
 FROM Teaches t
 JOIN Faculty f ON (t.faculty_Id = f.faculty_Id)
 JOIN Courses c ON (t.course_Id = c.course_Id)
 ORDER BY t.faculty_Id;
 
--- SELECT * FROM faculty_course_table;
-
--- student-course table
+-- Student-Course View
 CREATE VIEW student_course_table AS
-SELECT e.student_Id,CONCAT(s.first_name," ",s.last_name) student_name,e.course_Id,c.course_name,e.semester,e.year
+SELECT e.student_Id, CONCAT(s.first_name, ' ', s.last_name) AS student_name, e.course_Id, c.course_name, e.semester, e.year
 FROM Enrollments e
 JOIN Students s ON (e.student_Id = s.student_Id)
 JOIN Courses c ON (e.course_Id = c.course_Id)
 ORDER BY e.student_Id;
 
--- SELECT * FROM student_course_table;
-
--- attendence details
+-- Attendance Report View
 CREATE VIEW attendance_report AS
-SELECT a.attd_date,a.student_Id,CONCAT(s.first_name,' ',s.last_name) student_name,a.course_Id,
+SELECT a.attd_date, a.student_Id, CONCAT(s.first_name, ' ', s.last_name) AS student_name, a.course_Id,
 	CASE 
 		WHEN a.status = 'P' THEN 'Present'
-		WHEN a.status = 'A' THEN 'Abscent'
-        ELSE ' '
-	END att
+		WHEN a.status = 'A' THEN 'Absent'
+        ELSE 'Absent'
+	END AS att
 FROM Attendance a
-JOIN Students s ON (a.student_Id=s.student_Id)
-ORDER BY a.attd_date,s.student_Id;
+JOIN Students s ON (a.student_Id = s.student_Id)
+ORDER BY a.attd_date, s.student_Id;
 
-SELECT * FROM attendance_report;
-
--- user details table
+-- User Info View
 CREATE VIEW user_info AS
-SELECT user_Id,username,role
+SELECT user_Id, username, role
 FROM Users
 ORDER BY user_Id;
 
-SELECT * FROM user_info;
-
-
+-- Additional Setup & Schema Adjustments
 INSERT INTO Users (username, password, role) VALUES
 ('admin', '$2b$10$7.LqrNVhrgufIQB8l0gd9e/6BlwgKIzy7QKaKAtzJF8NfTpd8q6uu', 'admin');
 
@@ -279,12 +265,10 @@ CREATE TABLE IF NOT EXISTS notifications(
   id INT PRIMARY KEY AUTO_INCREMENT,
   title VARCHAR(255) NOT NULL,
   message TEXT NOT NULL,
-  target VARCHAR(10) DEFAULT 'all', -- 'student', 'faculty', 'admin'
+  target VARCHAR(10) DEFAULT 'all',
   is_read TINYINT(1) NOT NULL DEFAULT 0,
   created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
-
-
 
 CREATE TABLE IF NOT EXISTS Faculty_Leave (
     leave_Id INT AUTO_INCREMENT PRIMARY KEY,
@@ -292,15 +276,10 @@ CREATE TABLE IF NOT EXISTS Faculty_Leave (
     from_date DATE NOT NULL,
     to_date DATE NOT NULL,
     reason TEXT NOT NULL,
-    status ENUM('Pending','Approved','Rejected')
-    DEFAULT 'Pending',
+    status ENUM('Pending','Approved','Rejected') DEFAULT 'Pending',
     applied_on TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (faculty_Id)
-    REFERENCES Faculty(faculty_Id)
+    FOREIGN KEY (faculty_Id) REFERENCES Faculty(faculty_Id)
 );
-
-DESC Faculty;
-
 
 UPDATE notifications SET target = 'student' WHERE target = 'students';
 
