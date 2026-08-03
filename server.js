@@ -15,7 +15,7 @@ const express = require("express");
 const http = require("http");
 const { Server } = require("socket.io");
 const cors = require("cors");
-const mysql = require("mysql2/promise");
+const mysql = require("mysql2");
 const session = require("express-session");
 const MySQLStore = require("express-mysql-session")(session);
 const helmet = require("helmet");
@@ -143,10 +143,13 @@ const db = mysql.createPool({
   user: process.env.DB_USER,
   password: process.env.DB_PASSWORD,
   database: process.env.DB_NAME,
-  port: process.env.DB_PORT ? parseInt(process.env.DB_PORT, 10) : 25577,
- ssl: {
+  port: Number(process.env.DB_PORT) || 25577,
+  ssl: {
     rejectUnauthorized: false
-  }
+  },
+  waitForConnections: true,
+  connectionLimit: 10,
+  queueLimit: 0
 });
 
 db.getConnection()
