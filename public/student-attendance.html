@@ -1,0 +1,443 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+    <title>Student Attendance</title>
+
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap"
+      rel="stylesheet"
+    />
+
+    <style>
+      :root {
+        --primary: #1d4ed8;
+        --primary-dark: #1e3a8a;
+        --accent: #0f766e;
+        --bg: #f3f6fb;
+        --surface: #ffffff;
+        --border: #dbe3ef;
+        --text: #0f172a;
+        --muted: #64748b;
+        --shadow: 0 16px 36px rgba(15, 23, 42, 0.08);
+        --radius: 18px;
+        --success: #047857;
+        --danger: #b91c1c;
+      }
+
+      * {
+        box-sizing: border-box;
+        font-family: "Inter", sans-serif;
+      }
+
+      body {
+        margin: 0;
+        background: var(--bg);
+        color: var(--text);
+      }
+
+      .topbar {
+        background: white;
+        border-bottom: 1px solid var(--border);
+        position: sticky;
+        top: 0;
+      }
+
+      .topbar-inner {
+        max-width: 1180px;
+        margin: auto;
+        padding: 18px 28px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+      }
+
+      .brand {
+        display: flex;
+        align-items: center;
+        gap: 15px;
+      }
+
+      .brand-mark {
+        width: 45px;
+        height: 45px;
+        border-radius: 12px;
+        background: linear-gradient(135deg, var(--primary), var(--accent));
+        display: grid;
+        place-items: center;
+        color: white;
+        font-weight: bold;
+      }
+
+      .backBtn {
+        background: var(--primary);
+        color: white;
+        border: none;
+        padding: 10px 18px;
+        border-radius: 10px;
+        cursor: pointer;
+        font-weight: bold;
+      }
+
+      .page {
+        max-width: 1180px;
+        margin: auto;
+        padding: 30px;
+      }
+
+      .card {
+        background: white;
+        border-radius: 18px;
+        padding: 25px;
+        box-shadow: var(--shadow);
+      }
+
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-top: 20px;
+      }
+
+      th {
+        background: #f8fafc;
+      }
+
+      th,
+      td {
+        padding: 15px;
+        border-bottom: 1px solid var(--border);
+        text-align: left;
+      }
+
+      .status {
+        padding: 6px 14px;
+        border-radius: 20px;
+        font-weight: bold;
+        display: inline-block;
+      }
+
+      .present {
+        background: #dcfce7;
+        color: var(--success);
+      }
+
+      .absent {
+        background: #fee2e2;
+        color: var(--danger);
+      }
+
+      .course-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+        gap: 20px;
+        margin-top: 20px;
+      }
+
+      .course-card {
+        background: white;
+        border-radius: 18px;
+        box-shadow: var(--shadow);
+        padding: 22px;
+        border-top: 4px solid var(--primary);
+      }
+
+      .course-card-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        margin-bottom: 6px;
+      }
+
+      .course-card-header h3 {
+        margin: 0;
+        font-size: 1.05rem;
+      }
+
+      .course-card .course-id {
+        color: var(--muted);
+        font-size: 0.85rem;
+        margin-bottom: 4px;
+      }
+
+      .course-card .faculty-name {
+        color: var(--muted);
+        font-size: 0.85rem;
+        margin-bottom: 16px;
+      }
+
+      .attendance-row {
+        margin-bottom: 14px;
+      }
+
+      .attendance-label {
+        display: flex;
+        justify-content: space-between;
+        font-size: 0.88rem;
+        font-weight: 600;
+        margin-bottom: 6px;
+      }
+
+      .progress-track {
+        height: 10px;
+        background: #e8edf5;
+        border-radius: 999px;
+        overflow: hidden;
+      }
+
+      .progress-fill {
+        height: 100%;
+        border-radius: 999px;
+        transition: width 0.4s ease;
+      }
+
+      .pct-green {
+        color: #047857;
+      }
+      .pct-orange {
+        color: #b45309;
+      }
+      .pct-red {
+        color: #b91c1c;
+      }
+
+      .fill-green {
+        background: #16a34a;
+      }
+      .fill-orange {
+        background: #f59e0b;
+      }
+      .fill-red {
+        background: #dc2626;
+      }
+
+      .course-meta {
+        display: flex;
+        gap: 18px;
+        margin-top: 14px;
+        padding-top: 14px;
+        border-top: 1px solid var(--border);
+        font-size: 0.82rem;
+        color: var(--muted);
+      }
+      
+      .modern-select:hover {
+        border-color: #94a3b8;
+        box-shadow: 0 6px 16px rgba(15, 23, 42, 0.06);
+      }
+
+      @media (max-width: 768px) {
+        .page {
+          padding: 20px 16px;
+        }
+
+        .header-with-action {
+          flex-direction: column;
+          align-items: flex-start !important;
+          gap: 12px;
+        }
+
+        .select-wrapper,
+        .modern-select {
+          width: 100%;
+        }
+      }
+
+      @media (max-width: 640px) {
+        .topbar-inner {
+          flex-direction: column;
+          align-items: flex-start;
+          gap: 16px;
+        }
+
+        .course-grid {
+          grid-template-columns: 1fr;
+        }
+
+        .card {
+          padding: 16px;
+        }
+      }
+    </style>
+  </head>
+
+  <body>
+    <header class="topbar">
+      <div class="topbar-inner">
+        <div class="brand">
+          <div class="brand-mark">IMP</div>
+
+          <div>
+            <h3 style="margin: 0">Student Attendance</h3>
+
+            <small>Institute Management Portal</small>
+          </div>
+        </div>
+
+        <button class="backBtn" id="backBtn">
+          Dashboard
+        </button>
+      </div>
+    </header>
+
+    <div class="page">
+      <div class="card">
+        <div class="header-with-action" style="display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 24px; border-bottom: 1px solid var(--border, #cbd5e1); padding-bottom: 16px;">
+          <h2 style="margin: 0;">Attendance by Course</h2>
+          <div class="select-wrapper" style="position: relative;">
+            <select id="semesterSelect" class="modern-select" style="
+              appearance: none;
+              -webkit-appearance: none;
+              background-color: #fff;
+              border: 1px solid var(--border, #cbd5e1);
+              border-radius: 12px;
+              padding: 10px 36px 10px 16px;
+              font-family: inherit;
+              font-size: 0.9rem;
+              font-weight: 600;
+              color: var(--text, #0f172a);
+              cursor: pointer;
+              box-shadow: 0 4px 12px rgba(15, 23, 42, 0.03);
+              transition: border-color 0.2s ease, box-shadow 0.2s ease;
+            ">
+              <option>Loading Semesters...</option>
+            </select>
+            <span style="
+              position: absolute;
+              right: 14px;
+              top: 50%;
+              transform: translateY(-50%);
+              width: 10px;
+              height: 6px;
+              background-color: var(--text, #0f172a);
+              clip-path: polygon(100% 0, 0 0, 50% 100%);
+              pointer-events: none;
+            "></span>
+          </div>
+        </div>
+        <div class="course-grid" id="courseGrid">
+          <p>Loading attendance...</p>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      function getColorClass(pct) {
+        if (pct >= 90) return "green";
+        if (pct >= 75) return "orange";
+        return "red";
+      }
+
+      function buildCourseCard(course) {
+        const overallColor = getColorClass(course.overall_percentage);
+        const monthlyColor = getColorClass(course.monthly_percentage);
+
+        return `
+
+<div class="course-card">
+
+<div class="course-card-header">
+<h3>${course.course_name}</h3>
+</div>
+
+<div class="course-id">${course.course_Id}</div>
+<div class="faculty-name">👤 Faculty: ${course.faculty_name || "Not Assigned"}</div>
+
+<div class="attendance-row">
+<div class="attendance-label">
+<span>Overall Attendance</span>
+<span class="pct-${overallColor}">${course.overall_percentage}%</span>
+</div>
+<div class="progress-track">
+<div class="progress-fill fill-${overallColor}" style="width:${course.overall_percentage}%"></div>
+</div>
+</div>
+
+<div class="attendance-row">
+<div class="attendance-label">
+<span>This Month</span>
+<span class="pct-${monthlyColor}">${course.monthly_percentage}%</span>
+</div>
+<div class="progress-track">
+<div class="progress-fill fill-${monthlyColor}" style="width:${course.monthly_percentage}%"></div>
+</div>
+</div>
+
+<div class="course-meta">
+<span>📅 ${course.present_days}/${course.total_days} days (overall)</span>
+<span>🗓️ ${course.monthly_present}/${course.monthly_total} days (month)</span>
+</div>
+
+</div>
+
+`;
+      }
+
+      const userId = localStorage.getItem("userId");
+      const semesterSelect = document.getElementById("semesterSelect");
+      const grid = document.getElementById("courseGrid");
+
+      // Load distinct semesters first
+      fetch(`/student/${userId}/semesters`)
+        .then((res) => res.json())
+        .then((semesters) => {
+          if (!Array.isArray(semesters) || semesters.length === 0) {
+            semesterSelect.innerHTML = "<option>No Semesters</option>";
+            grid.innerHTML = `<p>No enrolled courses found.</p>`;
+            return;
+          }
+
+          // Populate dropdown options
+          semesterSelect.innerHTML = semesters
+            .map(
+              (item) =>
+                `<option value="${item.semester}-${item.year}">Semester ${item.semester} (${item.year})</option>`
+            )
+            .join("");
+
+          // Load attendance for the most recent semester/year
+          const [initialSem, initialYear] = semesterSelect.value.split("-");
+          loadAttendanceSummary(initialSem, initialYear);
+        })
+        .catch((err) => {
+          console.error("Error loading semesters:", err);
+          semesterSelect.innerHTML = "<option>Error loading</option>";
+          grid.innerHTML = `<p>Unable to load semesters.</p>`;
+        });
+
+      // Load attendance summary for specified semester and year
+      function loadAttendanceSummary(semester, year) {
+        grid.innerHTML = "<p>Loading attendance...</p>";
+        fetch(`/student/${userId}/attendance-summary?semester=${semester}&year=${year}`)
+          .then((res) => res.json())
+          .then((data) => {
+            if (!Array.isArray(data) || data.length === 0) {
+              grid.innerHTML = `<p>No attendance records for this semester.</p>`;
+              return;
+            }
+            grid.innerHTML = data.map(buildCourseCard).join("");
+          })
+          .catch((err) => {
+            console.error(err);
+            grid.innerHTML = `<p>Unable to load attendance data.</p>`;
+          });
+      }
+
+      // Event listener for dropdown changes
+      semesterSelect.addEventListener("change", (e) => {
+        const [sem, year] = e.target.value.split("-");
+        loadAttendanceSummary(sem, year);
+      });
+    </script>
+    <script src="/js/api.js"></script>
+    <script src="/js/notifications.js"></script>
+    <script>
+      document.getElementById("backBtn").addEventListener("click", () => {
+        window.location.href = "student.html";
+      });
+    </script>
+  </body>
+</html>

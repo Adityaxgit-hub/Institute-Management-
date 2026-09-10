@@ -1,0 +1,7 @@
+student_Id,first_name,last_name,email,phone,DOB,dept_Id
+S101,Rahul,Verma,rahul.verma@institute.edu,9000012345,2004-03-11,1
+S102,,Kumar,badname@institute.edu,9000012346,2004-01-01,1
+S103,Priya,Nair,not-an-email,9000012347,2004-05-20,1
+S001,Test,Duplicate,test.dup@institute.edu,9000012348,2004-02-02,1
+S104,Anjali,Rao,anjali.rao@institute.edu,123,2004-06-15,1
+S105,Kiran,Das,kiran.das@institute.edu,9000012350,2004-04-01,99
