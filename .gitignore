@@ -35,3 +35,9 @@ yarn-error.log*
 Thumbs.db
 .vscode/
 .idea/
+
+# Documentation & Interview Guides
+PROJECTS_INTERVIEW_GUIDE.md
+*.md
+!README.md
+
